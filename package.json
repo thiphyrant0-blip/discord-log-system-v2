@@ -1,0 +1,13 @@
+{
+  "name": "discord-cross-server-log",
+  "version": "1.0.0",
+  "description": "Discord Cross Server Log Bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "dotenv": "^16.6.1"
+  }
+}
