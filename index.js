@@ -1,206 +1,520 @@
-require("dotenv").config();
+// ======================================================
+// MEAOW LOG SYSTEM V2
+// Discord.js v14 + Render Web Server
+// ======================================================
 
 // ======================================================
-// RENDER WEB SERVER / DASHBOARD
+// 1. WEB SERVER FOR RENDER
 // ======================================================
 
 const http = require("http");
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 8080;
+
+let discordClient = null;
 
 const server = http.createServer((req, res) => {
 
-    res.writeHead(200, {
-        "Content-Type": "text/html; charset=utf-8"
-    });
+    // ==================================================
+    // DASHBOARD
+    // ==================================================
 
-    res.end(`
+    if (req.url === "/" || req.url === "/health") {
+
+        const botOnline =
+            discordClient &&
+            discordClient.isReady();
+
+        const botName =
+            botOnline
+                ? discordClient.user.tag
+                : "กำลังเริ่มระบบ...";
+
+        res.writeHead(200, {
+            "Content-Type": "text/html; charset=utf-8"
+        });
+
+        res.end(`
 <!DOCTYPE html>
 <html lang="th">
 
 <head>
 
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
 
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-<title>MEAOW LOG SYSTEM</title>
+    <meta
+        http-equiv="refresh"
+        content="30"
+    >
 
-<style>
+    <title>MEAOW LOG SYSTEM V2</title>
 
-* {
-    box-sizing: border-box;
-}
+    <style>
 
-body {
-    margin: 0;
-    min-height: 100vh;
+        * {
+            box-sizing: border-box;
+        }
 
-    display: flex;
-    justify-content: center;
-    align-items: center;
+        body {
 
-    background:
-        radial-gradient(
-            circle at top,
-            #1e293b,
-            #020617 70%
-        );
+            margin: 0;
 
-    font-family:
-        Arial,
-        "Segoe UI",
-        sans-serif;
+            min-height: 100vh;
 
-    color: white;
-}
+            display: flex;
 
-.card {
+            align-items: center;
 
-    width: 90%;
-    max-width: 460px;
+            justify-content: center;
 
-    padding: 45px 30px;
+            font-family:
+                Arial,
+                "Segoe UI",
+                Tahoma,
+                sans-serif;
 
-    text-align: center;
+            background:
+                radial-gradient(
+                    circle at top,
+                    #1e293b 0%,
+                    #0f172a 45%,
+                    #020617 100%
+                );
 
-    background: rgba(15, 23, 42, 0.95);
+            color: #ffffff;
 
-    border: 1px solid rgba(255,255,255,.08);
+        }
 
-    border-radius: 25px;
+        .container {
 
-    box-shadow:
-        0 25px 80px rgba(0,0,0,.55);
+            width: calc(100% - 40px);
 
-}
+            max-width: 520px;
 
-.icon {
+            padding: 40px 30px;
 
-    font-size: 70px;
+            text-align: center;
 
-    margin-bottom: 15px;
+            border-radius: 25px;
 
-    filter:
-        drop-shadow(
-            0 0 20px
-            rgba(87,242,135,.5)
-        );
+            background:
+                rgba(255,255,255,0.07);
 
-}
+            border:
+                1px solid
+                rgba(255,255,255,0.12);
 
-.title {
+            box-shadow:
+                0 25px 80px
+                rgba(0,0,0,0.45);
 
-    font-size: 28px;
+            backdrop-filter:
+                blur(20px);
 
-    font-weight: 700;
+        }
 
-    margin-bottom: 10px;
+        .bot-icon {
 
-}
+            font-size: 75px;
 
-.status {
+            margin-bottom: 10px;
 
-    display: inline-block;
+            filter:
+                drop-shadow(
+                    0 0 20px
+                    rgba(87,242,135,0.4)
+                );
 
-    margin-top: 10px;
+        }
 
-    padding: 10px 25px;
+        h1 {
 
-    border-radius: 999px;
+            margin: 0;
 
-    background: rgba(87,242,135,.12);
+            font-size: 30px;
 
-    border: 1px solid
-        rgba(87,242,135,.3);
+            font-weight: 800;
 
-    color: #57F287;
+            letter-spacing: 1px;
 
-    font-size: 30px;
+        }
 
-    font-weight: bold;
+        .version {
 
-}
+            margin-top: 8px;
 
-.info {
+            color: #94a3b8;
 
-    margin-top: 20px;
+            font-size: 14px;
 
-    color: #94a3b8;
+        }
 
-    font-size: 15px;
+        .status {
 
-}
+            display: inline-flex;
 
-.footer {
+            align-items: center;
 
-    margin-top: 25px;
+            gap: 10px;
 
-    color: #64748b;
+            margin-top: 25px;
 
-    font-size: 13px;
+            padding:
+                11px 22px;
 
-}
+            border-radius: 999px;
 
-</style>
+            background:
+                rgba(87,242,135,0.12);
+
+            border:
+                1px solid
+                rgba(87,242,135,0.25);
+
+            color: #57F287;
+
+            font-weight: 800;
+
+            font-size: 16px;
+
+        }
+
+        .dot {
+
+            width: 12px;
+
+            height: 12px;
+
+            border-radius: 50%;
+
+            background: #57F287;
+
+            box-shadow:
+                0 0 12px
+                #57F287;
+
+            animation:
+                pulse 1.5s infinite;
+
+        }
+
+        @keyframes pulse {
+
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(0.8);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+        }
+
+        .info {
+
+            margin-top: 30px;
+
+            padding: 20px;
+
+            text-align: left;
+
+            border-radius: 18px;
+
+            background:
+                rgba(0,0,0,0.20);
+
+        }
+
+        .row {
+
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            align-items:
+                center;
+
+            gap: 20px;
+
+            padding:
+                12px 0;
+
+            border-bottom:
+                1px solid
+                rgba(255,255,255,0.07);
+
+        }
+
+        .row:last-child {
+
+            border-bottom: none;
+
+        }
+
+        .label {
+
+            color: #94a3b8;
+
+        }
+
+        .value {
+
+            color: #ffffff;
+
+            font-weight: 700;
+
+            text-align: right;
+
+            word-break: break-word;
+
+        }
+
+        .online-text {
+
+            color: #57F287;
+
+        }
+
+        .footer {
+
+            margin-top: 25px;
+
+            color: #64748b;
+
+            font-size: 13px;
+
+            line-height: 1.7;
+
+        }
+
+    </style>
 
 </head>
 
 <body>
 
-<div class="card">
+    <div class="container">
 
-    <div class="icon">
-        🟢
+        <div class="bot-icon">
+            🤖
+        </div>
+
+        <h1>
+            MEAOW LOG SYSTEM V2
+        </h1>
+
+        <div class="version">
+            Discord Logging System
+        </div>
+
+        <div class="status">
+
+            <span class="dot"></span>
+
+            ${botOnline ? "ONLINE" : "STARTING"}
+
+        </div>
+
+        <div class="info">
+
+            <div class="row">
+
+                <span class="label">
+                    🤖 Discord Bot
+                </span>
+
+                <span class="value online-text">
+                    ${botName}
+                </span>
+
+            </div>
+
+            <div class="row">
+
+                <span class="label">
+                    📡 Status
+                </span>
+
+                <span class="value online-text">
+                    ${botOnline ? "ออนไลน์" : "กำลังเริ่ม"}
+                </span>
+
+            </div>
+
+            <div class="row">
+
+                <span class="label">
+                    🌐 Server
+                </span>
+
+                <span class="value">
+                    Render
+                </span>
+
+            </div>
+
+            <div class="row">
+
+                <span class="label">
+                    🔌 Port
+                </span>
+
+                <span class="value">
+                    ${PORT}
+                </span>
+
+            </div>
+
+            <div class="row">
+
+                <span class="label">
+                    ⏱️ Uptime
+                </span>
+
+                <span
+                    class="value"
+                    id="uptime"
+                >
+                    ${Math.floor(process.uptime())} วินาที
+                </span>
+
+            </div>
+
+        </div>
+
+        <div class="footer">
+
+            🐱 MEAOW LOG SYSTEM V2<br>
+
+            ระบบบันทึก Log Discord<br>
+
+            Auto Refresh ทุก 30 วินาที
+
+        </div>
+
     </div>
-
-    <div class="title">
-        MEAOW LOG SYSTEM
-    </div>
-
-    <div class="status">
-        ONLINE
-    </div>
-
-    <div class="info">
-        Discord Log System V2
-    </div>
-
-    <div class="footer">
-        Bot is running successfully
-    </div>
-
-</div>
 
 </body>
 
 </html>
-`);
+        `);
+
+        return;
+    }
+
+    // ==================================================
+    // API STATUS
+    // ==================================================
+
+    if (req.url === "/api/status") {
+
+        const online =
+            discordClient &&
+            discordClient.isReady();
+
+        res.writeHead(200, {
+            "Content-Type":
+                "application/json; charset=utf-8"
+        });
+
+        res.end(
+            JSON.stringify(
+                {
+                    status:
+                        online
+                            ? "ONLINE"
+                            : "STARTING",
+
+                    bot:
+                        online
+                            ? discordClient.user.tag
+                            : null,
+
+                    uptime:
+                        process.uptime(),
+
+                    timestamp:
+                        new Date().toISOString()
+                },
+                null,
+                2
+            )
+        );
+
+        return;
+    }
+
+    // ==================================================
+    // 404
+    // ==================================================
+
+    res.writeHead(404, {
+        "Content-Type":
+            "text/plain; charset=utf-8"
+    });
+
+    res.end("404 Not Found");
+
 });
 
-server.listen(PORT, "0.0.0.0", () => {
+// ======================================================
+// START WEB SERVER
+// ======================================================
 
-    console.log("====================================");
-    console.log("🌐 DASHBOARD ONLINE");
-    console.log(`🌐 PORT: ${PORT}`);
-    console.log("====================================");
+server.listen(
+    PORT,
+    "0.0.0.0",
+    () => {
 
-});
+        console.log("");
+        console.log("====================================");
+        console.log("🌐 RENDER WEB SERVER ONLINE");
+        console.log(`🚀 PORT: ${PORT}`);
+        console.log("🌐 HOST: 0.0.0.0");
+        console.log("====================================");
+
+    }
+);
 
 
 // ======================================================
-// DISCORD.JS
+// 2. ENVIRONMENT
+// ======================================================
+
+require("dotenv").config();
+
+
+// ======================================================
+// 3. DISCORD.JS
 // ======================================================
 
 const {
 
     Client,
+
     GatewayIntentBits,
+
     Partials,
+
     EmbedBuilder,
+
     ChannelType,
+
     PermissionFlagsBits,
+
     AuditLogEvent
 
 } = require("discord.js");
@@ -210,7 +524,8 @@ const {
 // CONFIG
 // ======================================================
 
-const TOKEN = process.env.TOKEN;
+const TOKEN =
+    process.env.TOKEN;
 
 const SOURCE_GUILD_ID =
     process.env.SOURCE_GUILD_ID;
@@ -219,13 +534,19 @@ const LOG_GUILD_ID =
     process.env.LOG_GUILD_ID;
 
 
+// ======================================================
+// CHECK ENV
+// ======================================================
+
 if (
     !TOKEN ||
     !SOURCE_GUILD_ID ||
     !LOG_GUILD_ID
 ) {
 
+    console.error("");
     console.error("❌ .env ตั้งค่าไม่ครบ");
+    console.error("");
 
     console.error(`
 TOKEN=
@@ -234,7 +555,6 @@ LOG_GUILD_ID=
 `);
 
     process.exit(1);
-
 }
 
 
@@ -282,6 +602,13 @@ const client = new Client({
 
 
 // ======================================================
+// CONNECT WEB SERVER STATUS TO DISCORD CLIENT
+// ======================================================
+
+discordClient = client;
+
+
+// ======================================================
 // LOG STRUCTURE
 // ======================================================
 
@@ -298,6 +625,7 @@ const LOG_STRUCTURE = {
         ["จำนวนคนออนไลน์", "member_count"]
 
     ],
+
 
     "LOG-VOICE": [
 
@@ -329,6 +657,7 @@ const LOG_STRUCTURE = {
 
     ],
 
+
     "LOG-MODERATOR": [
 
         ["แบน", "ban"],
@@ -345,6 +674,7 @@ const LOG_STRUCTURE = {
 
     ],
 
+
     "LOG-MESSAGE": [
 
         ["แก้ไขข้อความ", "message_edit"],
@@ -356,6 +686,7 @@ const LOG_STRUCTURE = {
         ["ลบวิดีโอ", "video_delete"]
 
     ],
+
 
     "LOG-GENERAL": [
 
@@ -459,7 +790,7 @@ const COLORS = {
 
 
 // ======================================================
-// THAI TIME
+// TIME
 // ======================================================
 
 function thaiTime() {
@@ -480,7 +811,10 @@ function thaiTime() {
 // SAFE TEXT
 // ======================================================
 
-function safeText(text, max = 900) {
+function safeText(
+    text,
+    max = 900
+) {
 
     if (
         text === null ||
@@ -557,20 +891,30 @@ function getLogGuild() {
 
 function findLogChannel(key) {
 
-    const guild = getLogGuild();
+    const guild =
+        getLogGuild();
 
-    if (!guild) return null;
+    if (!guild) {
+        return null;
+    }
 
     for (
-        const [categoryName, channels]
+        const [
+            categoryName,
+            channels
+        ]
         of Object.entries(LOG_STRUCTURE)
     ) {
 
-        const found = channels.find(
-            item => item[1] === key
-        );
+        const found =
+            channels.find(
+                item =>
+                    item[1] === key
+            );
 
-        if (!found) continue;
+        if (!found) {
+            continue;
+        }
 
         const channelName =
             found[0];
@@ -584,13 +928,16 @@ function findLogChannel(key) {
                         `${CATEGORY_ICONS[categoryName]} ${categoryName}`
             );
 
-        if (!category) return null;
+        if (!category) {
+            return null;
+        }
 
         return guild.channels.cache.find(
             channel =>
                 channel.type ===
                     ChannelType.GuildText &&
-                channel.parentId === category.id &&
+                channel.parentId ===
+                    category.id &&
                 channel.name ===
                     `・${channelName}`
         );
@@ -653,6 +1000,7 @@ async function sendLog({
 
                 });
 
+
         if (description) {
 
             embed.setDescription(
@@ -660,6 +1008,7 @@ async function sendLog({
             );
 
         }
+
 
         if (fields.length > 0) {
 
@@ -669,6 +1018,7 @@ async function sendLog({
 
         }
 
+
         if (thumbnail) {
 
             embed.setThumbnail(
@@ -677,9 +1027,12 @@ async function sendLog({
 
         }
 
+
         await channel.send({
 
-            embeds: [embed]
+            embeds: [
+                embed
+            ]
 
         });
 
@@ -721,15 +1074,19 @@ async function getAuditExecutor(
 
         }
 
+
         if (
+
             !guild.members.me?.permissions.has(
                 PermissionFlagsBits.ViewAuditLog
             )
+
         ) {
 
             return null;
 
         }
+
 
         const logs =
             await guild.fetchAuditLogs({
@@ -740,35 +1097,48 @@ async function getAuditExecutor(
 
             });
 
+
         const now =
             Date.now();
 
+
         const entry =
-            logs.entries.find(log => {
+            logs.entries.find(
+                log => {
 
-                const age =
-                    now -
-                    log.createdTimestamp;
+                    const age =
+                        now -
+                        log.createdTimestamp;
 
-                if (age > 15000) {
 
-                    return false;
+                    if (age > 15000) {
+
+                        return false;
+
+                    }
+
+
+                    if (
+
+                        targetId &&
+
+                        log.target?.id &&
+
+                        log.target.id !==
+                            targetId
+
+                    ) {
+
+                        return false;
+
+                    }
+
+
+                    return true;
 
                 }
+            );
 
-                if (
-                    targetId &&
-                    log.target?.id &&
-                    log.target.id !== targetId
-                ) {
-
-                    return false;
-
-                }
-
-                return true;
-
-            });
 
         if (!entry) {
 
@@ -776,9 +1146,11 @@ async function getAuditExecutor(
 
         }
 
+
         return {
 
-            user: entry.executor,
+            user:
+                entry.executor,
 
             reason:
                 entry.reason ||
@@ -820,7 +1192,8 @@ function auditFields(audit) {
 
         {
 
-            name: "👮 ผู้ดำเนินการ",
+            name:
+                "👮 ผู้ดำเนินการ",
 
             value:
                 userInfo(audit.user),
@@ -831,7 +1204,8 @@ function auditFields(audit) {
 
         {
 
-            name: "📝 เหตุผล",
+            name:
+                "📝 เหตุผล",
 
             value:
                 safeText(
@@ -858,13 +1232,23 @@ async function setupLogSystem(guild) {
         "🔧 กำลังตรวจสอบระบบ Log..."
     );
 
+
     for (
-        const [categoryName, channels]
-        of Object.entries(LOG_STRUCTURE)
+
+        const [
+            categoryName,
+            channels
+        ]
+
+        of Object.entries(
+            LOG_STRUCTURE
+        )
+
     ) {
 
         const categoryNameFull =
             `${CATEGORY_ICONS[categoryName]} ${categoryName}`;
+
 
         let category =
             guild.channels.cache.find(
@@ -875,9 +1259,10 @@ async function setupLogSystem(guild) {
                         categoryNameFull
             );
 
-        // ==================================================
+
+        // ==============================================
         // CREATE CATEGORY
-        // ==================================================
+        // ==============================================
 
         if (!category) {
 
@@ -895,13 +1280,11 @@ async function setupLogSystem(guild) {
                         {
 
                             id:
-                                guild.roles
-                                    .everyone.id,
+                                guild.roles.everyone.id,
 
                             deny: [
 
-                                PermissionFlagsBits
-                                    .ViewChannel
+                                PermissionFlagsBits.ViewChannel
 
                             ]
 
@@ -914,20 +1297,15 @@ async function setupLogSystem(guild) {
 
                             allow: [
 
-                                PermissionFlagsBits
-                                    .ViewChannel,
+                                PermissionFlagsBits.ViewChannel,
 
-                                PermissionFlagsBits
-                                    .SendMessages,
+                                PermissionFlagsBits.SendMessages,
 
-                                PermissionFlagsBits
-                                    .EmbedLinks,
+                                PermissionFlagsBits.EmbedLinks,
 
-                                PermissionFlagsBits
-                                    .ReadMessageHistory,
+                                PermissionFlagsBits.ReadMessageHistory,
 
-                                PermissionFlagsBits
-                                    .ManageChannels
+                                PermissionFlagsBits.ManageChannels
 
                             ]
 
@@ -937,6 +1315,7 @@ async function setupLogSystem(guild) {
 
                 });
 
+
             console.log(
                 `✅ สร้าง Category: ${categoryNameFull}`
             );
@@ -944,9 +1323,9 @@ async function setupLogSystem(guild) {
         }
 
 
-        // ==================================================
+        // ==============================================
         // CREATE CHANNELS
-        // ==================================================
+        // ==============================================
 
         for (
             const [channelName]
@@ -956,16 +1335,21 @@ async function setupLogSystem(guild) {
             const fullName =
                 `・${channelName}`;
 
+
             const exists =
                 guild.channels.cache.find(
                     channel =>
+
                         channel.type ===
                             ChannelType.GuildText &&
+
                         channel.parentId ===
                             category.id &&
+
                         channel.name ===
                             fullName
                 );
+
 
             if (exists) {
 
@@ -973,9 +1357,11 @@ async function setupLogSystem(guild) {
 
             }
 
+
             await guild.channels.create({
 
-                name: fullName,
+                name:
+                    fullName,
 
                 type:
                     ChannelType.GuildText,
@@ -988,16 +1374,13 @@ async function setupLogSystem(guild) {
                     {
 
                         id:
-                            guild.roles
-                                .everyone.id,
+                            guild.roles.everyone.id,
 
                         deny: [
 
-                            PermissionFlagsBits
-                                .ViewChannel,
+                            PermissionFlagsBits.ViewChannel,
 
-                            PermissionFlagsBits
-                                .SendMessages
+                            PermissionFlagsBits.SendMessages
 
                         ]
 
@@ -1010,17 +1393,13 @@ async function setupLogSystem(guild) {
 
                         allow: [
 
-                            PermissionFlagsBits
-                                .ViewChannel,
+                            PermissionFlagsBits.ViewChannel,
 
-                            PermissionFlagsBits
-                                .SendMessages,
+                            PermissionFlagsBits.SendMessages,
 
-                            PermissionFlagsBits
-                                .EmbedLinks,
+                            PermissionFlagsBits.EmbedLinks,
 
-                            PermissionFlagsBits
-                                .ReadMessageHistory
+                            PermissionFlagsBits.ReadMessageHistory
 
                         ]
 
@@ -1030,6 +1409,7 @@ async function setupLogSystem(guild) {
 
             });
 
+
             console.log(
                 `   └─ ✅ สร้าง #${fullName}`
             );
@@ -1037,6 +1417,7 @@ async function setupLogSystem(guild) {
         }
 
     }
+
 
     console.log(
         "===================================="
@@ -1047,8 +1428,7 @@ async function setupLogSystem(guild) {
     );
 
     console.log(
-        "===================================="
-    );
+        "====================================");
 
 }
 
@@ -1058,7 +1438,7 @@ async function setupLogSystem(guild) {
 // ======================================================
 
 client.once(
-    "clientReady",
+    "ready",
     async () => {
 
         console.log("");
@@ -1125,7 +1505,8 @@ client.once(
 
         await sendLog({
 
-            key: "bot_status",
+            key:
+                "bot_status",
 
             title:
                 "🟢 LOG SYSTEM V2 ONLINE",
@@ -1140,7 +1521,8 @@ client.once(
 
                 {
 
-                    name: "🏠 ดิสหลัก",
+                    name:
+                        "🏠 ดิสหลัก",
 
                     value:
                         `${sourceGuild.name}\n\`${sourceGuild.id}\``
@@ -1149,7 +1531,8 @@ client.once(
 
                 {
 
-                    name: "📋 ดิส Log",
+                    name:
+                        "📋 ดิส Log",
 
                     value:
                         `${logGuild.name}\n\`${logGuild.id}\``
@@ -1158,7 +1541,8 @@ client.once(
 
                 {
 
-                    name: "⏰ เวลา",
+                    name:
+                        "⏰ เวลา",
 
                     value:
                         thaiTime()
@@ -1232,8 +1616,7 @@ client.on(
                     value:
                         `${member.guild.memberCount}`,
 
-                    inline:
-                        true
+                    inline: true
 
                 },
 
@@ -1245,8 +1628,7 @@ client.on(
                     value:
                         `\`${member.id}\``,
 
-                    inline:
-                        true
+                    inline: true
 
                 }
 
@@ -1254,6 +1636,8 @@ client.on(
 
         });
 
+
+        // BOT ADD
 
         if (member.user.bot) {
 
@@ -1325,6 +1709,8 @@ client.on(
             );
 
 
+        // KICK
+
         if (auditKick) {
 
             await sendLog({
@@ -1373,6 +1759,8 @@ client.on(
         }
 
 
+        // NORMAL LEAVE
+
         await sendLog({
 
             key:
@@ -1410,6 +1798,8 @@ client.on(
 
         });
 
+
+        // BOT LEAVE
 
         if (member.user?.bot) {
 
@@ -1459,7 +1849,10 @@ client.on(
     "messageDelete",
     async message => {
 
-        if (!message.guild) return;
+        if (!message.guild) {
+            return;
+        }
+
 
         if (
             message.guild.id !==
@@ -1470,15 +1863,14 @@ client.on(
 
         }
 
+
         if (message.author?.bot) {
             return;
         }
 
 
         const attachments =
-            [
-                ...message.attachments.values()
-            ];
+            [...message.attachments.values()];
 
 
         let imageCount = 0;
@@ -1570,6 +1962,8 @@ client.on(
         });
 
 
+        // IMAGE
+
         if (imageCount > 0) {
 
             await sendLog({
@@ -1616,6 +2010,8 @@ client.on(
 
         }
 
+
+        // VIDEO
 
         if (videoCount > 0) {
 
@@ -1682,6 +2078,7 @@ client.on(
             return;
         }
 
+
         if (
             oldMessage.guild.id !==
             SOURCE_GUILD_ID
@@ -1690,6 +2087,7 @@ client.on(
             return;
 
         }
+
 
         if (oldMessage.author?.bot) {
             return;
@@ -1804,12 +2202,14 @@ client.on(
             oldState.member;
 
 
-        if (!member) return;
+        if (!member) {
+            return;
+        }
 
 
-        // ==================================================
+        // ==============================================
         // JOIN
-        // ==================================================
+        // ==============================================
 
         if (
             !oldState.channel &&
@@ -1863,9 +2263,9 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // LEAVE
-        // ==================================================
+        // ==============================================
 
         if (
             oldState.channel &&
@@ -1906,7 +2306,7 @@ client.on(
                             "🔊 ห้องเดิม",
 
                         value:
-                            oldState.channel.name
+                            `${oldState.channel.name}`
 
                     }
 
@@ -1919,9 +2319,9 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // MOVE
-        // ==================================================
+        // ==============================================
 
         if (
             oldState.channel &&
@@ -1987,9 +2387,9 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // SELF MUTE
-        // ==================================================
+        // ==============================================
 
         if (
             oldState.selfMute !==
@@ -2037,9 +2437,9 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // SELF DEAF
-        // ==================================================
+        // ==============================================
 
         if (
             oldState.selfDeaf !==
@@ -2087,9 +2487,9 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // SERVER MUTE
-        // ==================================================
+        // ==============================================
 
         if (
             oldState.serverMute !==
@@ -2155,9 +2555,9 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // SERVER DEAF
-        // ==================================================
+        // ==============================================
 
         if (
             oldState.serverDeaf !==
@@ -2201,9 +2601,9 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // CAMERA
-        // ==================================================
+        // ==============================================
 
         if (
             oldState.selfVideo !==
@@ -2251,9 +2651,9 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // STREAM
-        // ==================================================
+        // ==============================================
 
         if (
             oldState.streaming !==
@@ -2325,9 +2725,9 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // NICKNAME
-        // ==================================================
+        // ==============================================
 
         if (
             oldMember.nickname !==
@@ -2407,13 +2807,14 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // TIMEOUT
-        // ==================================================
+        // ==============================================
 
         const oldTimeout =
             oldMember
                 .communicationDisabledUntilTimestamp;
+
 
         const newTimeout =
             newMember
@@ -2532,14 +2933,15 @@ client.on(
         }
 
 
-        // ==================================================
+        // ==============================================
         // ROLES
-        // ==================================================
+        // ==============================================
 
         const oldRoles =
             new Set(
                 oldMember.roles.cache.keys()
             );
+
 
         const newRoles =
             new Set(
@@ -2551,9 +2953,11 @@ client.on(
             newMember.roles.cache.filter(
 
                 role =>
+
                     !oldRoles.has(
                         role.id
                     ) &&
+
                     role.id !==
                         newMember.guild.id
 
@@ -2564,18 +2968,20 @@ client.on(
             oldMember.roles.cache.filter(
 
                 role =>
+
                     !newRoles.has(
                         role.id
                     ) &&
+
                     role.id !==
                         newMember.guild.id
 
             );
 
 
-        // ==================================================
-        // ADD ROLE
-        // ==================================================
+        // ==============================================
+        // ADDED ROLE
+        // ==============================================
 
         for (
             const role
@@ -2690,9 +3096,9 @@ client.on(
         }
 
 
-        // ==================================================
-        // REMOVE ROLE
-        // ==================================================
+        // ==============================================
+        // REMOVED ROLE
+        // ==============================================
 
         for (
             const role
@@ -3151,12 +3557,8 @@ client.on(
         }
 
 
-        if (
-            changes.length === 0
-        ) {
-
+        if (changes.length === 0) {
             return;
-
         }
 
 
@@ -3221,6 +3623,7 @@ client.on(
         if (!channel.guild) {
             return;
         }
+
 
         if (
             channel.guild.id !==
@@ -3304,6 +3707,7 @@ client.on(
             return;
         }
 
+
         if (
             channel.guild.id !==
             SOURCE_GUILD_ID
@@ -3379,6 +3783,7 @@ client.on(
             return;
         }
 
+
         if (
             oldChannel.guild.id !==
             SOURCE_GUILD_ID
@@ -3416,12 +3821,8 @@ client.on(
         }
 
 
-        if (
-            changes.length === 0
-        ) {
-
+        if (changes.length === 0) {
             return;
-
         }
 
 
@@ -3523,12 +3924,8 @@ client.on(
         }
 
 
-        if (
-            changes.length === 0
-        ) {
-
+        if (changes.length === 0) {
             return;
-
         }
 
 
@@ -3802,6 +4199,7 @@ client.on(
             return;
         }
 
+
         if (
             invite.guild.id !==
             SOURCE_GUILD_ID
@@ -3870,6 +4268,7 @@ client.on(
             return;
         }
 
+
         if (
             invite.guild.id !==
             SOURCE_GUILD_ID
@@ -3925,6 +4324,7 @@ client.on(
         if (!channel.guild) {
             return;
         }
+
 
         if (
             channel.guild.id !==
@@ -3982,9 +4382,11 @@ client.on(
             return;
         }
 
+
         if (message.author.bot) {
             return;
         }
+
 
         if (
             message.guild.id !==
@@ -4076,7 +4478,7 @@ client.on(
 
 
 // ======================================================
-// ERROR
+// DISCORD ERROR
 // ======================================================
 
 client.on(
@@ -4092,6 +4494,10 @@ client.on(
 );
 
 
+// ======================================================
+// UNHANDLED REJECTION
+// ======================================================
+
 process.on(
     "unhandledRejection",
     error => {
@@ -4104,6 +4510,10 @@ process.on(
     }
 );
 
+
+// ======================================================
+// UNCAUGHT EXCEPTION
+// ======================================================
 
 process.on(
     "uncaughtException",
@@ -4123,7 +4533,7 @@ process.on(
 // ======================================================
 
 console.log(
-    "🔄 กำลังเชื่อมต่อ Discord..."
+    "🚀 กำลังเชื่อมต่อ Discord..."
 );
 
 client.login(TOKEN);
