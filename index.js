@@ -1,3 +1,9 @@
+// ============================================================
+// MEAOW LOG SYSTEM V3
+// Discord.js v14
+// Render Ready
+// ============================================================
+
 require("dotenv").config();
 
 const {
@@ -11,169 +17,270 @@ const {
 } = require("discord.js");
 
 const express = require("express");
+
+// ============================================================
+// WEB SERVER
+// ============================================================
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ======================================================
+// ============================================================
 // CONFIG
-// ======================================================
+// ============================================================
 
 const TOKEN = process.env.TOKEN;
 const SOURCE_GUILD_ID = process.env.SOURCE_GUILD_ID;
 const LOG_GUILD_ID = process.env.LOG_GUILD_ID;
 
 if (!TOKEN || !SOURCE_GUILD_ID || !LOG_GUILD_ID) {
-    console.error("❌ .env ตั้งค่าไม่ครบ");
+    console.error("❌ ตั้งค่า ENV ไม่ครบ");
+
     console.error(`
 TOKEN=
 SOURCE_GUILD_ID=
 LOG_GUILD_ID=
 `);
+
     process.exit(1);
 }
 
-// ======================================================
+// ============================================================
 // CLIENT
-// ======================================================
+// ============================================================
 
 const client = new Client({
+
     intents: [
+
         GatewayIntentBits.Guilds,
+
         GatewayIntentBits.GuildMembers,
+
         GatewayIntentBits.GuildMessages,
+
         GatewayIntentBits.MessageContent,
+
         GatewayIntentBits.GuildVoiceStates,
+
         GatewayIntentBits.GuildModeration,
+
         GatewayIntentBits.GuildInvites,
+
         GatewayIntentBits.GuildWebhooks,
-        GatewayIntentBits.GuildEmojisAndStickers
+
+        GatewayIntentBits.GuildEmojisAndStickers,
+
+        GatewayIntentBits.GuildPresences
     ],
 
     partials: [
+
         Partials.Channel,
+
         Partials.Message,
+
         Partials.GuildMember,
+
         Partials.User
     ]
 });
 
-// ======================================================
+// ============================================================
 // LOG STRUCTURE
-// ======================================================
+// ============================================================
 
 const LOG_STRUCTURE = {
 
     "LOG-MEMBER": [
+
         ["สถานะบอท", "bot_status"],
+
         ["คนเข้าเซิร์ฟเวอร์", "member_join"],
+
         ["คนออกเซิร์ฟเวอร์", "member_leave"],
-        ["จำนวนคนออนไลน์", "member_count"]
+
+        ["จำนวนสมาชิก", "member_count"]
     ],
 
     "LOG-VOICE": [
+
         ["เปิด-ปิดดูเซิร์ฟเวอร์", "voice_server"],
+
         ["เปลี่ยนชื่อเล่น", "nickname"],
+
         ["อัปเดตสถานะเสียง", "voice_status"],
+
         ["เปิด-ปิดไมค์เซิร์ฟเวอร์", "server_mute"],
+
         ["ตัดการเชื่อมต่อ", "voice_disconnect"],
+
         ["เปิด-ปิดไมค์", "voice_mute"],
+
         ["เปิด-ปิดหู", "voice_deaf"],
+
         ["เข้าห้อง", "voice_join"],
+
         ["เปิด-ปิดกล้อง", "camera"],
+
         ["เปิด-ปิดสตรีมจอ", "stream"],
+
         ["ออกห้อง", "voice_leave"],
+
         ["ย้ายห้อง", "voice_move"],
+
         ["ย้ายคน", "voice_move_member"]
     ],
 
     "LOG-MODERATOR": [
+
         ["แบน", "ban"],
+
         ["แบน-blacklist", "blacklist_ban"],
+
         ["ปลด-blacklist", "blacklist_unban"],
+
         ["ปลดแบน", "unban"],
+
         ["หมดเวลา", "timeout"],
+
         ["เตะ", "kick"]
     ],
 
     "LOG-MESSAGE": [
+
         ["แก้ไขข้อความ", "message_edit"],
+
         ["ลบข้อความ", "message_delete"],
+
         ["ลบรูปภาพ", "image_delete"],
+
         ["ลบวิดีโอ", "video_delete"]
     ],
 
     "LOG-GENERAL": [
+
         ["แก้ไขเซิร์ฟเวอร์", "guild_update"],
+
         ["ลบฟอร์ม", "form_delete"],
+
         ["ลบบอท", "bot_delete"],
+
         ["ลบเชิญ", "invite_delete"],
+
         ["ใส่ยศ-ถอดยศรวม", "role_update_member"],
+
         ["สร้างฟอร์ม", "form_create"],
+
         ["ลบสติกเกอร์", "sticker_delete"],
+
         ["แก้ไขฟอร์ม", "form_update"],
+
         ["สร้างเวที", "stage_create"],
+
         ["ลบประกาศ", "announcement_delete"],
+
         ["สร้างประกาศ", "announcement_create"],
+
         ["แก้ไขยศ", "role_update"],
+
         ["ลบยศ", "role_delete"],
+
         ["สร้างห้อง", "channel_create"],
+
         ["เพิ่มบอท", "bot_add"],
+
         ["สร้างยศ", "role_create"],
+
         ["สร้างwebhook", "webhook_create"],
+
         ["ลบwebhook", "webhook_delete"],
+
         ["ใส่ยศ", "role_add"],
+
         ["ลบห้อง", "channel_delete"],
+
         ["ถอดยศ", "role_remove"],
+
         ["แก้ไขห้อง", "channel_update"],
+
         ["เพิ่มอีโมจิ", "emoji_create"],
+
         ["ลบอีโมจิ", "emoji_delete"],
+
         ["เพิ่มสติกเกอร์", "sticker_create"]
     ]
 };
 
-// ======================================================
+// ============================================================
 // CATEGORY ICON
-// ======================================================
+// ============================================================
 
 const CATEGORY_ICONS = {
+
     "LOG-MEMBER": "📋",
+
     "LOG-VOICE": "🔊",
+
     "LOG-MODERATOR": "🔨",
+
     "LOG-MESSAGE": "💬",
+
     "LOG-GENERAL": "⚙️"
 };
 
-// ======================================================
+// ============================================================
 // COLORS
-// ======================================================
+// ============================================================
 
 const COLORS = {
+
     green: 0x57F287,
+
     red: 0xED4245,
+
     blue: 0x5865F2,
+
     yellow: 0xFEE75C,
+
     purple: 0x9B59B6,
+
     orange: 0xF97316,
+
     cyan: 0x00B8D9,
+
     gray: 0x747F8D
 };
 
-// ======================================================
+// ============================================================
+// CACHE
+// ============================================================
+
+const auditCache = new Map();
+
+const lastMemberCount = new Map();
+
+const lastPresenceCount = new Map();
+
+// ============================================================
 // TIME
-// ======================================================
+// ============================================================
 
 function thaiTime() {
 
     return new Date().toLocaleString("th-TH", {
+
         timeZone: "Asia/Bangkok",
+
         dateStyle: "medium",
+
         timeStyle: "medium"
     });
 }
 
-// ======================================================
+// ============================================================
 // SAFE TEXT
-// ======================================================
+// ============================================================
 
 function safeText(text, max = 900) {
 
@@ -182,34 +289,37 @@ function safeText(text, max = 900) {
         text === undefined ||
         text === ""
     ) {
+
         return "ไม่มีข้อมูล";
     }
 
     text = String(text);
 
     if (text.length > max) {
+
         return text.substring(0, max) + "...";
     }
 
     return text;
 }
 
-// ======================================================
+// ============================================================
 // USER INFO
-// ======================================================
+// ============================================================
 
 function userInfo(user) {
 
     if (!user) {
+
         return "ไม่ทราบข้อมูล";
     }
 
     return `${user.tag || user.username || "Unknown"}\n\`${user.id}\``;
 }
 
-// ======================================================
-// SOURCE GUILD
-// ======================================================
+// ============================================================
+// GUILD
+// ============================================================
 
 function getSourceGuild() {
 
@@ -218,10 +328,6 @@ function getSourceGuild() {
     );
 }
 
-// ======================================================
-// LOG GUILD
-// ======================================================
-
 function getLogGuild() {
 
     return client.guilds.cache.get(
@@ -229,15 +335,16 @@ function getLogGuild() {
     );
 }
 
-// ======================================================
+// ============================================================
 // FIND LOG CHANNEL
-// ======================================================
+// ============================================================
 
 function findLogChannel(key) {
 
     const guild = getLogGuild();
 
     if (!guild) {
+
         return null;
     }
 
@@ -251,6 +358,7 @@ function findLogChannel(key) {
         );
 
         if (!found) {
+
             continue;
         }
 
@@ -258,39 +366,55 @@ function findLogChannel(key) {
 
         const category =
             guild.channels.cache.find(
+
                 channel =>
+
                     channel.type ===
-                        ChannelType.GuildCategory &&
+                    ChannelType.GuildCategory &&
+
                     channel.name ===
-                        `${CATEGORY_ICONS[categoryName]} ${categoryName}`
+                    `${CATEGORY_ICONS[categoryName]} ${categoryName}`
             );
 
         if (!category) {
+
             return null;
         }
 
         return guild.channels.cache.find(
+
             channel =>
+
                 channel.type ===
-                    ChannelType.GuildText &&
-                channel.parentId === category.id &&
-                channel.name === `・${channelName}`
+                ChannelType.GuildText &&
+
+                channel.parentId ===
+                category.id &&
+
+                channel.name ===
+                `・${channelName}`
         );
     }
 
     return null;
 }
 
-// ======================================================
+// ============================================================
 // SEND LOG
-// ======================================================
+// ============================================================
 
 async function sendLog({
+
     key,
+
     title,
+
     description,
+
     color = COLORS.blue,
+
     fields = [],
+
     thumbnail = null
 }) {
 
@@ -310,24 +434,33 @@ async function sendLog({
 
         const embed =
             new EmbedBuilder()
-                .setTitle(title)
+
+                .setTitle(
+                    safeText(title, 256)
+                )
+
                 .setColor(color)
+
                 .setTimestamp()
+
                 .setFooter({
+
                     text:
-                        `Meaow Log V2 • ${thaiTime()}`
+                        `Meaow Log V3 • ${thaiTime()}`
                 });
 
         if (description) {
 
             embed.setDescription(
-                description
+                safeText(description, 4000)
             );
         }
 
-        if (fields.length > 0) {
+        if (fields.length) {
 
-            embed.addFields(fields);
+            embed.addFields(
+                fields.slice(0, 25)
+            );
         }
 
         if (thumbnail) {
@@ -338,6 +471,7 @@ async function sendLog({
         }
 
         await channel.send({
+
             embeds: [embed]
         });
 
@@ -350,9 +484,9 @@ async function sendLog({
     }
 }
 
-// ======================================================
+// ============================================================
 // AUDIT LOG
-// ======================================================
+// ============================================================
 
 async function getAuditExecutor(
     guild,
@@ -378,9 +512,25 @@ async function getAuditExecutor(
             return null;
         }
 
+        const cacheKey =
+            `${guild.id}:${action}:${targetId || "none"}`;
+
+        const old =
+            auditCache.get(cacheKey);
+
+        if (
+            old &&
+            Date.now() - old.time < 3000
+        ) {
+
+            return old.data;
+        }
+
         const logs =
             await guild.fetchAuditLogs({
+
                 type: action,
+
                 limit: 10
             });
 
@@ -393,6 +543,7 @@ async function getAuditExecutor(
                     now - log.createdTimestamp;
 
                 if (age > 15000) {
+
                     return false;
                 }
 
@@ -409,16 +560,30 @@ async function getAuditExecutor(
             });
 
         if (!entry) {
+
             return null;
         }
 
-        return {
+        const data = {
+
             user: entry.executor,
+
             reason:
                 entry.reason ||
                 "ไม่ได้ระบุเหตุผล",
+
             entry
         };
+
+        auditCache.set(
+            cacheKey,
+            {
+                time: Date.now(),
+                data
+            }
+        );
+
+        return data;
 
     } catch (error) {
 
@@ -431,41 +596,74 @@ async function getAuditExecutor(
     }
 }
 
-// ======================================================
-// AUDIT FIELD
-// ======================================================
+// ============================================================
+// AUDIT FIELDS
+// ============================================================
 
 function auditFields(audit) {
 
     if (!audit) {
+
         return [];
     }
 
     return [
 
         {
-            name: "👮 ผู้ดำเนินการ",
+
+            name:
+                "👮 ผู้ดำเนินการ",
+
             value:
                 userInfo(audit.user),
+
             inline: true
         },
 
         {
-            name: "📝 เหตุผล",
+
+            name:
+                "📝 เหตุผล",
+
             value:
                 safeText(
                     audit.reason,
                     300
                 ),
+
             inline: true
         }
-
     ];
 }
 
-// ======================================================
+// ============================================================
+// MEMBER COUNT
+// ============================================================
+
+function getOnlineCount(guild) {
+
+    let count = 0;
+
+    guild.members.cache.forEach(
+        member => {
+
+            if (
+                member.presence &&
+                member.presence.status !==
+                "offline"
+            ) {
+
+                count++;
+            }
+        }
+    );
+
+    return count;
+}
+
+// ============================================================
 // SETUP LOG SYSTEM
-// ======================================================
+// ============================================================
 
 async function setupLogSystem(guild) {
 
@@ -483,64 +681,85 @@ async function setupLogSystem(guild) {
 
         let category =
             guild.channels.cache.find(
+
                 channel =>
+
                     channel.type ===
-                        ChannelType.GuildCategory &&
+                    ChannelType.GuildCategory &&
+
                     channel.name ===
-                        categoryNameFull
+                    categoryNameFull
             );
 
-        // ----------------------------------------------
+        // ====================================================
         // CREATE CATEGORY
-        // ----------------------------------------------
+        // ====================================================
 
         if (!category) {
 
-            category =
-                await guild.channels.create({
+            try {
 
-                    name:
-                        categoryNameFull,
+                category =
+                    await guild.channels.create({
 
-                    type:
-                        ChannelType.GuildCategory,
+                        name:
+                            categoryNameFull,
 
-                    permissionOverwrites: [
+                        type:
+                            ChannelType.GuildCategory,
 
-                        {
-                            id:
-                                guild.roles.everyone.id,
+                        permissionOverwrites: [
 
-                            deny: [
-                                PermissionFlagsBits.ViewChannel
-                            ]
-                        },
+                            {
 
-                        {
-                            id:
-                                client.user.id,
+                                id:
+                                    guild.roles.everyone.id,
 
-                            allow: [
-                                PermissionFlagsBits.ViewChannel,
-                                PermissionFlagsBits.SendMessages,
-                                PermissionFlagsBits.EmbedLinks,
-                                PermissionFlagsBits.ReadMessageHistory,
-                                PermissionFlagsBits.ManageChannels
-                            ]
-                        }
+                                deny: [
 
-                    ]
+                                    PermissionFlagsBits.ViewChannel
+                                ]
+                            },
 
-                });
+                            {
 
-            console.log(
-                `✅ สร้าง Category: ${categoryNameFull}`
-            );
+                                id:
+                                    client.user.id,
+
+                                allow: [
+
+                                    PermissionFlagsBits.ViewChannel,
+
+                                    PermissionFlagsBits.SendMessages,
+
+                                    PermissionFlagsBits.EmbedLinks,
+
+                                    PermissionFlagsBits.ReadMessageHistory,
+
+                                    PermissionFlagsBits.ManageChannels
+                                ]
+                            }
+                        ]
+                    });
+
+                console.log(
+                    `✅ สร้าง Category: ${categoryNameFull}`
+                );
+
+            } catch (error) {
+
+                console.error(
+                    `❌ สร้าง Category ไม่ได้: ${categoryNameFull}`,
+                    error.message
+                );
+
+                continue;
+            }
         }
 
-        // ----------------------------------------------
+        // ====================================================
         // CREATE CHANNELS
-        // ----------------------------------------------
+        // ====================================================
 
         for (
             const [channelName]
@@ -552,61 +771,82 @@ async function setupLogSystem(guild) {
 
             const exists =
                 guild.channels.cache.find(
+
                     channel =>
+
                         channel.type ===
-                            ChannelType.GuildText &&
+                        ChannelType.GuildText &&
+
                         channel.parentId ===
-                            category.id &&
+                        category.id &&
+
                         channel.name ===
-                            fullName
+                        fullName
                 );
 
             if (exists) {
+
                 continue;
             }
 
-            await guild.channels.create({
+            try {
 
-                name:
-                    fullName,
+                await guild.channels.create({
 
-                type:
-                    ChannelType.GuildText,
+                    name:
+                        fullName,
 
-                parent:
-                    category.id,
+                    type:
+                        ChannelType.GuildText,
 
-                permissionOverwrites: [
+                    parent:
+                        category.id,
 
-                    {
-                        id:
-                            guild.roles.everyone.id,
+                    permissionOverwrites: [
 
-                        deny: [
-                            PermissionFlagsBits.ViewChannel,
-                            PermissionFlagsBits.SendMessages
-                        ]
-                    },
+                        {
 
-                    {
-                        id:
-                            client.user.id,
+                            id:
+                                guild.roles.everyone.id,
 
-                        allow: [
-                            PermissionFlagsBits.ViewChannel,
-                            PermissionFlagsBits.SendMessages,
-                            PermissionFlagsBits.EmbedLinks,
-                            PermissionFlagsBits.ReadMessageHistory
-                        ]
-                    }
+                            deny: [
 
-                ]
+                                PermissionFlagsBits.ViewChannel,
 
-            });
+                                PermissionFlagsBits.SendMessages
+                            ]
+                        },
 
-            console.log(
-                `    └─ ✅ สร้าง #${fullName}`
-            );
+                        {
+
+                            id:
+                                client.user.id,
+
+                            allow: [
+
+                                PermissionFlagsBits.ViewChannel,
+
+                                PermissionFlagsBits.SendMessages,
+
+                                PermissionFlagsBits.EmbedLinks,
+
+                                PermissionFlagsBits.ReadMessageHistory
+                            ]
+                        }
+                    ]
+                });
+
+                console.log(
+                    `   └─ ✅ สร้าง #${fullName}`
+                );
+
+            } catch (error) {
+
+                console.error(
+                    `❌ สร้าง Channel ไม่ได้: ${fullName}`,
+                    error.message
+                );
+            }
         }
     }
 
@@ -615,7 +855,7 @@ async function setupLogSystem(guild) {
     );
 
     console.log(
-        "✅ LOG SYSTEM V2 พร้อมใช้งาน"
+        "✅ LOG SYSTEM V3 พร้อมใช้งาน"
     );
 
     console.log(
@@ -623,13 +863,14 @@ async function setupLogSystem(guild) {
     );
 }
 
-// ======================================================
+// ============================================================
 // READY
-// ======================================================
+// ============================================================
 
 client.once("ready", async () => {
 
     console.log("");
+
     console.log(
         "===================================="
     );
@@ -639,7 +880,7 @@ client.once("ready", async () => {
     );
 
     console.log(
-        "🚀 MEAOW LOG SYSTEM V2"
+        "🚀 MEAOW LOG SYSTEM V3"
     );
 
     console.log(
@@ -682,13 +923,27 @@ client.once("ready", async () => {
         logGuild
     );
 
+    await sourceGuild.members
+        .fetch()
+        .catch(() => {});
+
+    lastMemberCount.set(
+        sourceGuild.id,
+        sourceGuild.memberCount
+    );
+
+    lastPresenceCount.set(
+        sourceGuild.id,
+        getOnlineCount(sourceGuild)
+    );
+
     await sendLog({
 
         key:
             "bot_status",
 
         title:
-            "🟢 LOG SYSTEM V2 ONLINE",
+            "🟢 LOG SYSTEM V3 ONLINE",
 
         description:
             "ระบบบันทึก Log ออนไลน์และพร้อมใช้งานแล้ว",
@@ -699,6 +954,7 @@ client.once("ready", async () => {
         fields: [
 
             {
+
                 name:
                     "🏠 ดิสหลัก",
 
@@ -707,6 +963,7 @@ client.once("ready", async () => {
             },
 
             {
+
                 name:
                     "📋 ดิส Log",
 
@@ -715,21 +972,42 @@ client.once("ready", async () => {
             },
 
             {
+
+                name:
+                    "👥 สมาชิก",
+
+                value:
+                    `${sourceGuild.memberCount}`,
+
+                inline: true
+            },
+
+            {
+
+                name:
+                    "🟢 ออนไลน์",
+
+                value:
+                    `${getOnlineCount(sourceGuild)}`,
+
+                inline: true
+            },
+
+            {
+
                 name:
                     "⏰ เวลา",
 
                 value:
                     thaiTime()
             }
-
         ]
-
     });
 });
 
-// ======================================================
+// ============================================================
 // MEMBER JOIN
-// ======================================================
+// ============================================================
 
 client.on(
     "guildMemberAdd",
@@ -739,6 +1017,7 @@ client.on(
             member.guild.id !==
             SOURCE_GUILD_ID
         ) {
+
             return;
         }
 
@@ -764,6 +1043,7 @@ client.on(
             fields: [
 
                 {
+
                     name:
                         "👤 สมาชิก",
 
@@ -774,6 +1054,7 @@ client.on(
                 },
 
                 {
+
                     name:
                         "👥 สมาชิกทั้งหมด",
 
@@ -784,6 +1065,7 @@ client.on(
                 },
 
                 {
+
                     name:
                         "🆔 ID",
 
@@ -792,12 +1074,8 @@ client.on(
 
                     inline: true
                 }
-
             ]
-
         });
-
-        // Bot
 
         if (member.user.bot) {
 
@@ -818,6 +1096,7 @@ client.on(
                 fields: [
 
                     {
+
                         name:
                             "🤖 Bot",
 
@@ -826,17 +1105,15 @@ client.on(
                                 member.user
                             )
                     }
-
                 ]
-
             });
         }
     }
 );
 
-// ======================================================
-// MEMBER LEAVE (Fixed)
-// ======================================================
+// ============================================================
+// MEMBER LEAVE
+// ============================================================
 
 client.on(
     "guildMemberRemove",
@@ -846,6 +1123,7 @@ client.on(
             member.guild.id !==
             SOURCE_GUILD_ID
         ) {
+
             return;
         }
 
@@ -857,10 +1135,11 @@ client.on(
                 AuditLogEvent.MemberKick,
 
                 member.id
-
             );
 
-        // Kick
+        // ====================================================
+        // KICK
+        // ====================================================
 
         if (auditKick) {
 
@@ -886,6 +1165,7 @@ client.on(
                 fields: [
 
                     {
+
                         name:
                             "👤 ผู้ถูกเตะ",
 
@@ -898,15 +1178,16 @@ client.on(
                     ...auditFields(
                         auditKick
                     )
-
                 ]
-
             });
 
             return;
         }
 
-        // Bot Leave
+        // ====================================================
+        // BOT LEAVE
+        // ====================================================
+
         if (member.user?.bot) {
 
             await sendLog({
@@ -926,6 +1207,7 @@ client.on(
                 fields: [
 
                     {
+
                         name:
                             "🤖 Bot",
 
@@ -934,15 +1216,15 @@ client.on(
                                 member.user
                             )
                     }
-
                 ]
-
             });
 
             return;
         }
 
-        // Normal Leave
+        // ====================================================
+        // NORMAL LEAVE
+        // ====================================================
 
         await sendLog({
 
@@ -966,6 +1248,7 @@ client.on(
             fields: [
 
                 {
+
                     name:
                         "👤 สมาชิก",
 
@@ -974,22 +1257,446 @@ client.on(
                             member.user
                         )
                 }
-
             ]
-
         });
     }
 );
 
-// ======================================================
+// ============================================================
+// MEMBER UPDATE
+// ============================================================
+
+client.on(
+    "guildMemberUpdate",
+    async (
+        oldMember,
+        newMember
+    ) => {
+
+        if (
+            newMember.guild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        // ====================================================
+        // NICKNAME
+        // ====================================================
+
+        if (
+            oldMember.nickname !==
+            newMember.nickname
+        ) {
+
+            await sendLog({
+
+                key:
+                    "nickname",
+
+                title:
+                    "✏️ เปลี่ยนชื่อเล่น",
+
+                description:
+                    `${newMember.user.tag} เปลี่ยนชื่อเล่น`,
+
+                color:
+                    COLORS.yellow,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👤 สมาชิก",
+
+                        value:
+                            userInfo(
+                                newMember.user
+                            )
+                    },
+
+                    {
+
+                        name:
+                            "ก่อนเปลี่ยน",
+
+                        value:
+                            oldMember.nickname ||
+                            "ไม่มีชื่อเล่น"
+                    },
+
+                    {
+
+                        name:
+                            "หลังเปลี่ยน",
+
+                        value:
+                            newMember.nickname ||
+                            "ไม่มีชื่อเล่น"
+                    }
+                ]
+            });
+        }
+
+        // ====================================================
+        // ROLES
+        // ====================================================
+
+        const oldRoles =
+            new Set(
+                oldMember.roles.cache.keys()
+            );
+
+        const newRoles =
+            new Set(
+                newMember.roles.cache.keys()
+            );
+
+        const addedRoles =
+            [...newRoles].filter(
+                id => !oldRoles.has(id)
+            );
+
+        const removedRoles =
+            [...oldRoles].filter(
+                id => !newRoles.has(id)
+            );
+
+        // ====================================================
+        // ROLE ADD
+        // ====================================================
+
+        for (const roleId of addedRoles) {
+
+            if (
+                roleId ===
+                newMember.guild.id
+            ) {
+
+                continue;
+            }
+
+            const role =
+                newMember.guild.roles.cache.get(
+                    roleId
+                );
+
+            if (!role) {
+
+                continue;
+            }
+
+            const audit =
+                await getAuditExecutor(
+
+                    newMember.guild,
+
+                    AuditLogEvent.MemberRoleUpdate,
+
+                    newMember.id
+                );
+
+            await sendLog({
+
+                key:
+                    "role_add",
+
+                title:
+                    "➕ เพิ่มยศ",
+
+                description:
+                    `${newMember} ได้รับยศ ${role}`,
+
+                color:
+                    COLORS.green,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👤 สมาชิก",
+
+                        value:
+                            userInfo(
+                                newMember.user
+                            )
+                    },
+
+                    {
+
+                        name:
+                            "🎖️ ยศ",
+
+                        value:
+                            `${role.name}\n\`${role.id}\``
+                    },
+
+                    ...auditFields(audit)
+                ]
+            });
+        }
+
+        // ====================================================
+        // ROLE REMOVE
+        // ====================================================
+
+        for (const roleId of removedRoles) {
+
+            if (
+                roleId ===
+                newMember.guild.id
+            ) {
+
+                continue;
+            }
+
+            const role =
+                newMember.guild.roles.cache.get(
+                    roleId
+                );
+
+            if (!role) {
+
+                continue;
+            }
+
+            const audit =
+                await getAuditExecutor(
+
+                    newMember.guild,
+
+                    AuditLogEvent.MemberRoleUpdate,
+
+                    newMember.id
+                );
+
+            await sendLog({
+
+                key:
+                    "role_remove",
+
+                title:
+                    "➖ ถอดยศ",
+
+                description:
+                    `${newMember.user.tag} ถูกถอดยศ ${role.name}`,
+
+                color:
+                    COLORS.red,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👤 สมาชิก",
+
+                        value:
+                            userInfo(
+                                newMember.user
+                            )
+                    },
+
+                    {
+
+                        name:
+                            "🎖️ ยศ",
+
+                        value:
+                            `${role.name}\n\`${role.id}\``
+                    },
+
+                    ...auditFields(audit)
+                ]
+            });
+        }
+
+        // ====================================================
+        // TIMEOUT
+        // ====================================================
+
+        const oldTimeout =
+            oldMember.communicationDisabledUntilTimestamp;
+
+        const newTimeout =
+            newMember.communicationDisabledUntilTimestamp;
+
+        if (
+            oldTimeout !==
+            newTimeout
+        ) {
+
+            if (newTimeout) {
+
+                const audit =
+                    await getAuditExecutor(
+
+                        newMember.guild,
+
+                        AuditLogEvent.MemberUpdate,
+
+                        newMember.id
+                    );
+
+                await sendLog({
+
+                    key:
+                        "timeout",
+
+                    title:
+                        "⏱️ หมดเวลา / Timeout",
+
+                    description:
+                        `${newMember.user.tag} ถูก Timeout`,
+
+                    color:
+                        COLORS.orange,
+
+                    fields: [
+
+                        {
+
+                            name:
+                                "👤 สมาชิก",
+
+                            value:
+                                userInfo(
+                                    newMember.user
+                                )
+                        },
+
+                        {
+
+                            name:
+                                "⏰ สิ้นสุด",
+
+                            value:
+                                `<t:${Math.floor(
+                                    newTimeout / 1000
+                                )}:F>`
+                        },
+
+                        ...auditFields(audit)
+                    ]
+                });
+
+            } else {
+
+                await sendLog({
+
+                    key:
+                        "timeout",
+
+                    title:
+                        "✅ ยกเลิก Timeout",
+
+                    description:
+                        `${newMember.user.tag} พ้นจาก Timeout แล้ว`,
+
+                    color:
+                        COLORS.green,
+
+                    fields: [
+
+                        {
+
+                            name:
+                                "👤 สมาชิก",
+
+                            value:
+                                userInfo(
+                                    newMember.user
+                                )
+                        }
+                    ]
+                });
+            }
+        }
+
+        // ====================================================
+        // COMBINED ROLE LOG
+        // ====================================================
+
+        if (
+            addedRoles.length ||
+            removedRoles.length
+        ) {
+
+            await sendLog({
+
+                key:
+                    "role_update_member",
+
+                title:
+                    "🎖️ อัปเดตยศสมาชิก",
+
+                description:
+                    `มีการเปลี่ยนแปลงยศของ ${newMember.user.tag}`,
+
+                color:
+                    COLORS.purple,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👤 สมาชิก",
+
+                        value:
+                            userInfo(
+                                newMember.user
+                            )
+                    },
+
+                    {
+
+                        name:
+                            "➕ เพิ่ม",
+
+                        value:
+                            addedRoles.length
+                                ? addedRoles
+                                    .map(id =>
+                                        newMember.guild.roles.cache.get(id)?.name || id
+                                    )
+                                    .join(", ")
+                                : "ไม่มี"
+                    },
+
+                    {
+
+                        name:
+                            "➖ ถอด",
+
+                        value:
+                            removedRoles.length
+                                ? removedRoles
+                                    .map(id =>
+                                        oldMember.guild.roles.cache.get(id)?.name || id
+                                    )
+                                    .join(", ")
+                                : "ไม่มี"
+                    }
+                ]
+            });
+        }
+    }
+);
+
+// ============================================================
 // MESSAGE DELETE
-// ======================================================
+// ============================================================
 
 client.on(
     "messageDelete",
     async message => {
 
         if (!message.guild) {
+
             return;
         }
 
@@ -997,10 +1704,12 @@ client.on(
             message.guild.id !==
             SOURCE_GUILD_ID
         ) {
+
             return;
         }
 
         if (message.author?.bot) {
+
             return;
         }
 
@@ -1008,6 +1717,7 @@ client.on(
             [...message.attachments.values()];
 
         let imageCount = 0;
+
         let videoCount = 0;
 
         for (
@@ -1051,6 +1761,7 @@ client.on(
             fields: [
 
                 {
+
                     name:
                         "👤 ผู้ส่ง",
 
@@ -1061,6 +1772,7 @@ client.on(
                 },
 
                 {
+
                     name:
                         "📢 ห้อง",
 
@@ -1069,6 +1781,7 @@ client.on(
                 },
 
                 {
+
                     name:
                         "💬 ข้อความ",
 
@@ -1076,13 +1789,22 @@ client.on(
                         `\`\`\`\n${safeText(
                             message.content
                         )}\n\`\`\``
+                },
+
+                {
+
+                    name:
+                        "📎 ไฟล์แนบ",
+
+                    value:
+                        `${attachments.length} ไฟล์`
                 }
-
             ]
-
         });
 
-        // Image
+        // ====================================================
+        // IMAGE
+        // ====================================================
 
         if (imageCount > 0) {
 
@@ -1103,6 +1825,7 @@ client.on(
                 fields: [
 
                     {
+
                         name:
                             "👤 ผู้ส่ง",
 
@@ -1113,19 +1836,20 @@ client.on(
                     },
 
                     {
+
                         name:
                             "📢 ห้อง",
 
                         value:
                             `${message.channel}`
                     }
-
                 ]
-
             });
         }
 
-        // Video
+        // ====================================================
+        // VIDEO
+        // ====================================================
 
         if (videoCount > 0) {
 
@@ -1146,6 +1870,7 @@ client.on(
                 fields: [
 
                     {
+
                         name:
                             "👤 ผู้ส่ง",
 
@@ -1156,23 +1881,22 @@ client.on(
                     },
 
                     {
+
                         name:
                             "📢 ห้อง",
 
                         value:
                             `${message.channel}`
                     }
-
                 ]
-
             });
         }
     }
 );
 
-// ======================================================
+// ============================================================
 // MESSAGE UPDATE
-// ======================================================
+// ============================================================
 
 client.on(
     "messageUpdate",
@@ -1182,6 +1906,7 @@ client.on(
     ) => {
 
         if (!oldMessage.guild) {
+
             return;
         }
 
@@ -1189,10 +1914,12 @@ client.on(
             oldMessage.guild.id !==
             SOURCE_GUILD_ID
         ) {
+
             return;
         }
 
         if (oldMessage.author?.bot) {
+
             return;
         }
 
@@ -1221,6 +1948,7 @@ client.on(
             fields: [
 
                 {
+
                     name:
                         "👤 ผู้ใช้",
 
@@ -1231,6 +1959,7 @@ client.on(
                 },
 
                 {
+
                     name:
                         "📢 ห้อง",
 
@@ -1239,6 +1968,7 @@ client.on(
                 },
 
                 {
+
                     name:
                         "ก่อนแก้ไข",
 
@@ -1250,6 +1980,7 @@ client.on(
                 },
 
                 {
+
                     name:
                         "หลังแก้ไข",
 
@@ -1259,16 +1990,14 @@ client.on(
                             600
                         )}\n\`\`\``
                 }
-
             ]
-
         });
     }
 );
 
-// ======================================================
-// VOICE
-// ======================================================
+// ============================================================
+// VOICE STATE
+// ============================================================
 
 client.on(
     "voiceStateUpdate",
@@ -1290,10 +2019,13 @@ client.on(
             oldState.member;
 
         if (!member) {
+
             return;
         }
 
-        // Join
+        // ====================================================
+        // JOIN
+        // ====================================================
 
         if (
             !oldState.channel &&
@@ -1317,6 +2049,7 @@ client.on(
                 fields: [
 
                     {
+
                         name:
                             "👤 สมาชิก",
 
@@ -1327,87 +2060,155 @@ client.on(
                     },
 
                     {
+
                         name:
                             "🔊 ห้อง",
 
                         value:
                             `${newState.channel.name}\n\`${newState.channel.id}\``
                     }
-
                 ]
-
             });
-
-            return;
         }
 
-        // Leave
+        // ====================================================
+        // LEAVE
+        // ====================================================
 
         if (
             oldState.channel &&
             !newState.channel
         ) {
 
-            await sendLog({
+            const audit =
+                await getAuditExecutor(
 
-                key:
-                    "voice_leave",
+                    oldState.guild,
 
-                title:
-                    "📴 ออกจากห้อง",
+                    AuditLogEvent.MemberDisconnect,
 
-                description:
-                    `${member} ออกจากห้องเสียง`,
+                    member.id
+                );
 
-                color:
-                    COLORS.red,
+            if (audit) {
 
-                fields: [
+                await sendLog({
 
-                    {
-                        name:
-                            "👤 สมาชิก",
+                    key:
+                        "voice_disconnect",
 
-                        value:
-                            userInfo(
-                                member.user
-                            )
-                    },
+                    title:
+                        "🔌 ตัดการเชื่อมต่อ",
 
-                    {
-                        name:
-                            "🔊 ห้องเดิม",
+                    description:
+                        `${member.user.tag} ถูกตัดการเชื่อมต่อจากห้องเสียง`,
 
-                        value:
-                            oldState.channel.name
-                    }
+                    color:
+                        COLORS.red,
 
-                ]
+                    fields: [
 
-            });
+                        {
 
-            return;
+                            name:
+                                "👤 สมาชิก",
+
+                            value:
+                                userInfo(
+                                    member.user
+                                )
+                        },
+
+                        {
+
+                            name:
+                                "🔊 ห้อง",
+
+                            value:
+                                oldState.channel.name
+                        },
+
+                        ...auditFields(audit)
+                    ]
+                });
+
+            } else {
+
+                await sendLog({
+
+                    key:
+                        "voice_leave",
+
+                    title:
+                        "📴 ออกจากห้อง",
+
+                    description:
+                        `${member} ออกจากห้องเสียง`,
+
+                    color:
+                        COLORS.red,
+
+                    fields: [
+
+                        {
+
+                            name:
+                                "👤 สมาชิก",
+
+                            value:
+                                userInfo(
+                                    member.user
+                                )
+                        },
+
+                        {
+
+                            name:
+                                "🔊 ห้องเดิม",
+
+                            value:
+                                oldState.channel.name
+                        }
+                    ]
+                });
+            }
         }
 
-        // Move
+        // ====================================================
+        // MOVE
+        // ====================================================
 
         if (
             oldState.channel &&
             newState.channel &&
             oldState.channel.id !==
-                newState.channel.id
+            newState.channel.id
         ) {
+
+            const audit =
+                await getAuditExecutor(
+
+                    newState.guild,
+
+                    AuditLogEvent.MemberMove,
+
+                    member.id
+                );
 
             await sendLog({
 
                 key:
-                    "voice_move",
+                    audit
+                        ? "voice_move_member"
+                        : "voice_move",
 
                 title:
-                    "🔄 ย้ายห้อง",
+                    audit
+                        ? "🔄 แอดมินย้ายสมาชิก"
+                        : "🔄 ย้ายห้อง",
 
                 description:
-                    `${member} ย้ายห้องเสียง`,
+                    `${member.user.tag} ย้ายจากห้องหนึ่งไปอีกห้องหนึ่ง`,
 
                 color:
                     COLORS.blue,
@@ -1415,6 +2216,7 @@ client.on(
                 fields: [
 
                     {
+
                         name:
                             "👤 สมาชิก",
 
@@ -1425,6 +2227,7 @@ client.on(
                     },
 
                     {
+
                         name:
                             "🔊 จาก",
 
@@ -1433,21 +2236,22 @@ client.on(
                     },
 
                     {
+
                         name:
                             "🔊 ไป",
 
                         value:
                             newState.channel.name
-                    }
+                    },
 
+                    ...auditFields(audit)
                 ]
-
             });
-
-            return;
         }
 
-        // Self Mute
+        // ====================================================
+        // SELF MUTE
+        // ====================================================
 
         if (
             oldState.selfMute !==
@@ -1465,7 +2269,7 @@ client.on(
                         : "🎤 เปิดไมค์",
 
                 description:
-                    `${member} ${
+                    `${member.user.tag} ${
                         newState.selfMute
                             ? "ปิด"
                             : "เปิด"
@@ -1477,6 +2281,7 @@ client.on(
                 fields: [
 
                     {
+
                         name:
                             "👤 สมาชิก",
 
@@ -1485,13 +2290,70 @@ client.on(
                                 member.user
                             )
                     }
-
                 ]
-
             });
         }
 
-        // Self Deaf
+        // ====================================================
+        // SERVER MUTE
+        // ====================================================
+
+        if (
+            oldState.serverMute !==
+            newState.serverMute
+        ) {
+
+            const audit =
+                await getAuditExecutor(
+
+                    newState.guild,
+
+                    AuditLogEvent.MemberUpdate,
+
+                    member.id
+                );
+
+            await sendLog({
+
+                key:
+                    "server_mute",
+
+                title:
+                    newState.serverMute
+                        ? "🔇 ปิดไมค์เซิร์ฟเวอร์"
+                        : "🎤 เปิดไมค์เซิร์ฟเวอร์",
+
+                description:
+                    `${member.user.tag} ${
+                        newState.serverMute
+                            ? "ถูกปิดไมค์โดยเซิร์ฟเวอร์"
+                            : "ถูกเปิดไมค์โดยเซิร์ฟเวอร์"
+                    }`,
+
+                color:
+                    COLORS.orange,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👤 สมาชิก",
+
+                        value:
+                            userInfo(
+                                member.user
+                            )
+                    },
+
+                    ...auditFields(audit)
+                ]
+            });
+        }
+
+        // ====================================================
+        // SELF DEAF
+        // ====================================================
 
         if (
             oldState.selfDeaf !==
@@ -1505,11 +2367,11 @@ client.on(
 
                 title:
                     newState.selfDeaf
-                        ? "🔇 ปิดหู"
+                        ? "🙉 ปิดหู"
                         : "🎧 เปิดหู",
 
                 description:
-                    `${member} ${
+                    `${member.user.tag} ${
                         newState.selfDeaf
                             ? "ปิด"
                             : "เปิด"
@@ -1521,6 +2383,7 @@ client.on(
                 fields: [
 
                     {
+
                         name:
                             "👤 สมาชิก",
 
@@ -1529,58 +2392,1905 @@ client.on(
                                 member.user
                             )
                     }
-
                 ]
+            });
+        }
 
+        // ====================================================
+        // STREAM
+        // ====================================================
+
+        if (
+            oldState.streaming !==
+            newState.streaming
+        ) {
+
+            await sendLog({
+
+                key:
+                    "stream",
+
+                title:
+                    newState.streaming
+                        ? "🖥️ เปิดสตรีมจอ"
+                        : "🖥️ ปิดสตรีมจอ",
+
+                description:
+                    `${member.user.tag} ${
+                        newState.streaming
+                            ? "เริ่มแชร์หน้าจอ"
+                            : "หยุดแชร์หน้าจอ"
+                    }`,
+
+                color:
+                    COLORS.purple,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👤 สมาชิก",
+
+                        value:
+                            userInfo(
+                                member.user
+                            )
+                    },
+
+                    {
+
+                        name:
+                            "🔊 ห้อง",
+
+                        value:
+                            newState.channel?.name ||
+                            oldState.channel?.name ||
+                            "ไม่ทราบ"
+                    }
+                ]
+            });
+        }
+
+        // ====================================================
+        // CAMERA
+        // ====================================================
+
+        if (
+            oldState.selfVideo !==
+            newState.selfVideo
+        ) {
+
+            await sendLog({
+
+                key:
+                    "camera",
+
+                title:
+                    newState.selfVideo
+                        ? "📹 เปิดกล้อง"
+                        : "📷 ปิดกล้อง",
+
+                description:
+                    `${member.user.tag} ${
+                        newState.selfVideo
+                            ? "เปิดกล้อง"
+                            : "ปิดกล้อง"
+                    }`,
+
+                color:
+                    COLORS.cyan,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👤 สมาชิก",
+
+                        value:
+                            userInfo(
+                                member.user
+                            )
+                    }
+                ]
+            });
+        }
+
+        // ====================================================
+        // VOICE SERVER STATUS
+        // ====================================================
+
+        if (
+            oldState.suppress !==
+            newState.suppress
+        ) {
+
+            await sendLog({
+
+                key:
+                    "voice_status",
+
+                title:
+                    "🔊 อัปเดตสถานะเสียง",
+
+                description:
+                    `${member.user.tag} มีการเปลี่ยนแปลงสถานะเสียง`,
+
+                color:
+                    COLORS.cyan,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👤 สมาชิก",
+
+                        value:
+                            userInfo(
+                                member.user
+                            )
+                    },
+
+                    {
+
+                        name:
+                            "สถานะ",
+
+                        value:
+                            newState.suppress
+                                ? "ถูก Suppress"
+                                : "ยกเลิก Suppress"
+                    }
+                ]
             });
         }
     }
 );
 
-// ======================================================
-// 24/7 DASHBOARD / WEB SERVER
-// ======================================================
+// ============================================================
+// BAN
+// ============================================================
 
-app.get("/", (req, res) => {
-    const uptime = process.uptime();
-    const hours = Math.floor(uptime / 3600);
-    const minutes = Math.floor((uptime % 3600) / 60);
-    const seconds = Math.floor(uptime % 60);
+client.on(
+    "guildBanAdd",
+    async ban => {
 
-    res.send(`
-        <!DOCTYPE html>
-        <html lang="th">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Meaow Log System - Dashboard</title>
-            <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d1117; color: #c9d1d9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-                .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center; width: 350px; }
-                h2 { color: #5865F2; font-size: 24px; margin-bottom: 10px; margin-top: 0; }
-                .status-badge { display: inline-block; background-color: #238636; color: white; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 14px; margin: 15px 0; }
-                .info { margin: 10px 0; font-size: 15px; color: #8b949e; }
-                .info span { color: #f0f6fc; font-weight: bold; }
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h2>🐱 Meaow Log V2</h2>
-                <div class="status-badge">🟢 Online 24/7</div>
-                <div class="info">บอทสถานะ: <span>${client.user ? client.user.tag : "กำลังเชื่อมต่อ..."}</span></div>
-                <div class="info">เวลาทำงานต่อเนื่อง: <span>${hours} ชม. ${minutes} น. ${seconds} วิ.</span></div>
-            </div>
-        </body>
-        </html>
-    `);
-});
+        if (
+            ban.guild.id !==
+            SOURCE_GUILD_ID
+        ) {
 
-app.listen(PORT, () => {
-    console.log(`🌐 Dashboard Server เปิดทำงานแล้วที่พอร์ต ${PORT}`);
-});
+            return;
+        }
 
-// ======================================================
+        const audit =
+            await getAuditExecutor(
+
+                ban.guild,
+
+                AuditLogEvent.MemberBanAdd,
+
+                ban.user.id
+            );
+
+        const reason =
+            audit?.reason || "";
+
+        const isBlacklist =
+            reason
+                .toLowerCase()
+                .includes("blacklist");
+
+        await sendLog({
+
+            key:
+                isBlacklist
+                    ? "blacklist_ban"
+                    : "ban",
+
+            title:
+                isBlacklist
+                    ? "🚫 แบน BLACKLIST"
+                    : "🔨 แบนสมาชิก",
+
+            description:
+                `${ban.user.tag} ถูกแบนออกจากเซิร์ฟเวอร์`,
+
+            color:
+                COLORS.red,
+
+            thumbnail:
+                ban.user.displayAvatarURL({
+                    size: 256
+                }),
+
+            fields: [
+
+                {
+
+                    name:
+                        "👤 ผู้ถูกแบน",
+
+                    value:
+                        userInfo(
+                            ban.user
+                        )
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// UNBAN
+// ============================================================
+
+client.on(
+    "guildBanRemove",
+    async ban => {
+
+        if (
+            ban.guild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const audit =
+            await getAuditExecutor(
+
+                ban.guild,
+
+                AuditLogEvent.MemberBanRemove,
+
+                ban.user.id
+            );
+
+        const reason =
+            audit?.reason || "";
+
+        const isBlacklist =
+            reason
+                .toLowerCase()
+                .includes("blacklist");
+
+        await sendLog({
+
+            key:
+                isBlacklist
+                    ? "blacklist_unban"
+                    : "unban",
+
+            title:
+                isBlacklist
+                    ? "✅ ปลด BLACKLIST"
+                    : "✅ ปลดแบน",
+
+            description:
+                `${ban.user.tag} ถูกปลดแบน`,
+
+            color:
+                COLORS.green,
+
+            fields: [
+
+                {
+
+                    name:
+                        "👤 สมาชิก",
+
+                    value:
+                        userInfo(
+                            ban.user
+                        )
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// CHANNEL CREATE
+// ============================================================
+
+client.on(
+    "channelCreate",
+    async channel => {
+
+        if (
+            channel.guild?.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        let key =
+            "channel_create";
+
+        let title =
+            "📁 สร้างห้อง";
+
+        if (
+            channel.type ===
+            ChannelType.GuildAnnouncement
+        ) {
+
+            key =
+                "announcement_create";
+
+            title =
+                "📢 สร้างประกาศ";
+        }
+
+        if (
+            channel.type ===
+            ChannelType.GuildStageVoice
+        ) {
+
+            key =
+                "stage_create";
+
+            title =
+                "🎤 สร้างเวที";
+        }
+
+        await sendLog({
+
+            key,
+
+            title,
+
+            description:
+                `มีการสร้าง ${channel.name}`,
+
+            color:
+                COLORS.green,
+
+            fields: [
+
+                {
+
+                    name:
+                        "📢 ชื่อห้อง",
+
+                    value:
+                        `${channel.name}\n\`${channel.id}\``
+                },
+
+                {
+
+                    name:
+                        "📂 ประเภท",
+
+                    value:
+                        `${channel.type}`
+                }
+            ]
+        });
+    }
+);
+
+// ============================================================
+// CHANNEL DELETE
+// ============================================================
+
+client.on(
+    "channelDelete",
+    async channel => {
+
+        if (
+            channel.guild?.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        let key =
+            "channel_delete";
+
+        let title =
+            "🗑️ ลบห้อง";
+
+        if (
+            channel.type ===
+            ChannelType.GuildAnnouncement
+        ) {
+
+            key =
+                "announcement_delete";
+
+            title =
+                "🗑️ ลบประกาศ";
+        }
+
+        await sendLog({
+
+            key,
+
+            title,
+
+            description:
+                `ห้อง ${channel.name} ถูกลบ`,
+
+            color:
+                COLORS.red,
+
+            fields: [
+
+                {
+
+                    name:
+                        "📢 ห้อง",
+
+                    value:
+                        `${channel.name}\n\`${channel.id}\``
+                }
+            ]
+        });
+    }
+);
+
+// ============================================================
+// CHANNEL UPDATE
+// ============================================================
+
+client.on(
+    "channelUpdate",
+    async (
+        oldChannel,
+        newChannel
+    ) => {
+
+        if (
+            newChannel.guild?.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        if (
+            oldChannel.name ===
+            newChannel.name &&
+            oldChannel.parentId ===
+            newChannel.parentId &&
+            oldChannel.topic ===
+            newChannel.topic &&
+            oldChannel.rateLimitPerUser ===
+            newChannel.rateLimitPerUser
+        ) {
+
+            return;
+        }
+
+        await sendLog({
+
+            key:
+                "channel_update",
+
+            title:
+                "✏️ แก้ไขห้อง",
+
+            description:
+                `มีการแก้ไขห้อง ${newChannel.name}`,
+
+            color:
+                COLORS.yellow,
+
+            fields: [
+
+                {
+
+                    name:
+                        "📢 ห้อง",
+
+                    value:
+                        `${newChannel.name}\n\`${newChannel.id}\``
+                },
+
+                {
+
+                    name:
+                        "ชื่อเดิม",
+
+                    value:
+                        oldChannel.name
+                },
+
+                {
+
+                    name:
+                        "ชื่อใหม่",
+
+                    value:
+                        newChannel.name
+                }
+            ]
+        });
+    }
+);
+
+// ============================================================
+// ROLE CREATE
+// ============================================================
+
+client.on(
+    "roleCreate",
+    async role => {
+
+        if (
+            role.guild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const audit =
+            await getAuditExecutor(
+
+                role.guild,
+
+                AuditLogEvent.RoleCreate,
+
+                role.id
+            );
+
+        await sendLog({
+
+            key:
+                "role_create",
+
+            title:
+                "🎖️ สร้างยศ",
+
+            description:
+                `สร้างยศ ${role.name}`,
+
+            color:
+                COLORS.green,
+
+            fields: [
+
+                {
+
+                    name:
+                        "🎖️ ยศ",
+
+                    value:
+                        `${role.name}\n\`${role.id}\``
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// ROLE DELETE
+// ============================================================
+
+client.on(
+    "roleDelete",
+    async role => {
+
+        if (
+            role.guild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const audit =
+            await getAuditExecutor(
+
+                role.guild,
+
+                AuditLogEvent.RoleDelete,
+
+                role.id
+            );
+
+        await sendLog({
+
+            key:
+                "role_delete",
+
+            title:
+                "🗑️ ลบยศ",
+
+            description:
+                `ลบยศ ${role.name}`,
+
+            color:
+                COLORS.red,
+
+            fields: [
+
+                {
+
+                    name:
+                        "🎖️ ยศ",
+
+                    value:
+                        `${role.name}\n\`${role.id}\``
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// ROLE UPDATE
+// ============================================================
+
+client.on(
+    "roleUpdate",
+    async (
+        oldRole,
+        newRole
+    ) => {
+
+        if (
+            newRole.guild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        if (
+            oldRole.name ===
+            newRole.name &&
+            oldRole.color ===
+            newRole.color &&
+            oldRole.permissions.bitfield ===
+            newRole.permissions.bitfield &&
+            oldRole.hoist ===
+            newRole.hoist &&
+            oldRole.mentionable ===
+            newRole.mentionable
+        ) {
+
+            return;
+        }
+
+        const audit =
+            await getAuditExecutor(
+
+                newRole.guild,
+
+                AuditLogEvent.RoleUpdate,
+
+                newRole.id
+            );
+
+        await sendLog({
+
+            key:
+                "role_update",
+
+            title:
+                "✏️ แก้ไขยศ",
+
+            description:
+                `มีการแก้ไขยศ ${newRole.name}`,
+
+            color:
+                COLORS.yellow,
+
+            fields: [
+
+                {
+
+                    name:
+                        "🎖️ ยศ",
+
+                    value:
+                        `${newRole.name}\n\`${newRole.id}\``
+                },
+
+                {
+
+                    name:
+                        "ชื่อเดิม",
+
+                    value:
+                        oldRole.name
+                },
+
+                {
+
+                    name:
+                        "ชื่อใหม่",
+
+                    value:
+                        newRole.name
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// GUILD UPDATE
+// ============================================================
+
+client.on(
+    "guildUpdate",
+    async (
+        oldGuild,
+        newGuild
+    ) => {
+
+        if (
+            newGuild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const changes = [];
+
+        if (
+            oldGuild.name !==
+            newGuild.name
+        ) {
+
+            changes.push(
+                `ชื่อ: ${oldGuild.name} → ${newGuild.name}`
+            );
+        }
+
+        if (
+            oldGuild.description !==
+            newGuild.description
+        ) {
+
+            changes.push(
+                "คำอธิบายเซิร์ฟเวอร์มีการเปลี่ยนแปลง"
+            );
+        }
+
+        if (
+            oldGuild.icon !==
+            newGuild.icon
+        ) {
+
+            changes.push(
+                "ไอคอนเซิร์ฟเวอร์มีการเปลี่ยนแปลง"
+            );
+        }
+
+        if (!changes.length) {
+
+            return;
+        }
+
+        const audit =
+            await getAuditExecutor(
+
+                newGuild,
+
+                AuditLogEvent.GuildUpdate,
+
+                newGuild.id
+            );
+
+        await sendLog({
+
+            key:
+                "guild_update",
+
+            title:
+                "⚙️ แก้ไขเซิร์ฟเวอร์",
+
+            description:
+                "มีการเปลี่ยนแปลงข้อมูลเซิร์ฟเวอร์",
+
+            color:
+                COLORS.yellow,
+
+            fields: [
+
+                {
+
+                    name:
+                        "🏠 เซิร์ฟเวอร์",
+
+                    value:
+                        `${newGuild.name}\n\`${newGuild.id}\``
+                },
+
+                {
+
+                    name:
+                        "🔧 การเปลี่ยนแปลง",
+
+                    value:
+                        changes.join("\n")
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// EMOJI CREATE
+// ============================================================
+
+client.on(
+    "emojiCreate",
+    async emoji => {
+
+        if (
+            emoji.guild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const audit =
+            await getAuditExecutor(
+
+                emoji.guild,
+
+                AuditLogEvent.EmojiCreate,
+
+                emoji.id
+            );
+
+        await sendLog({
+
+            key:
+                "emoji_create",
+
+            title:
+                "😀 เพิ่มอีโมจิ",
+
+            description:
+                `เพิ่ม Emoji ${emoji.name}`,
+
+            color:
+                COLORS.green,
+
+            fields: [
+
+                {
+
+                    name:
+                        "😀 Emoji",
+
+                    value:
+                        `${emoji.name}\n\`${emoji.id}\``
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// EMOJI DELETE
+// ============================================================
+
+client.on(
+    "emojiDelete",
+    async emoji => {
+
+        if (
+            emoji.guild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const audit =
+            await getAuditExecutor(
+
+                emoji.guild,
+
+                AuditLogEvent.EmojiDelete,
+
+                emoji.id
+            );
+
+        await sendLog({
+
+            key:
+                "emoji_delete",
+
+            title:
+                "🗑️ ลบอีโมจิ",
+
+            description:
+                `ลบ Emoji ${emoji.name}`,
+
+            color:
+                COLORS.red,
+
+            fields: [
+
+                {
+
+                    name:
+                        "😀 Emoji",
+
+                    value:
+                        `${emoji.name || "ไม่ทราบชื่อ"}\n\`${emoji.id}\``
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// STICKER CREATE
+// ============================================================
+
+client.on(
+    "stickerCreate",
+    async sticker => {
+
+        if (
+            sticker.guild?.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const audit =
+            await getAuditExecutor(
+
+                sticker.guild,
+
+                AuditLogEvent.StickerCreate,
+
+                sticker.id
+            );
+
+        await sendLog({
+
+            key:
+                "sticker_create",
+
+            title:
+                "🏷️ เพิ่มสติกเกอร์",
+
+            description:
+                `เพิ่ม Sticker ${sticker.name}`,
+
+            color:
+                COLORS.green,
+
+            fields: [
+
+                {
+
+                    name:
+                        "🏷️ Sticker",
+
+                    value:
+                        `${sticker.name}\n\`${sticker.id}\``
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// STICKER DELETE
+// ============================================================
+
+client.on(
+    "stickerDelete",
+    async sticker => {
+
+        if (
+            sticker.guild?.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const audit =
+            await getAuditExecutor(
+
+                sticker.guild,
+
+                AuditLogEvent.StickerDelete,
+
+                sticker.id
+            );
+
+        await sendLog({
+
+            key:
+                "sticker_delete",
+
+            title:
+                "🗑️ ลบสติกเกอร์",
+
+            description:
+                `ลบ Sticker ${sticker.name}`,
+
+            color:
+                COLORS.red,
+
+            fields: [
+
+                {
+
+                    name:
+                        "🏷️ Sticker",
+
+                    value:
+                        `${sticker.name || "ไม่ทราบชื่อ"}\n\`${sticker.id}\``
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// INVITE DELETE
+// ============================================================
+
+client.on(
+    "inviteDelete",
+    async invite => {
+
+        if (
+            invite.guild?.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const audit =
+            await getAuditExecutor(
+
+                invite.guild,
+
+                AuditLogEvent.InviteDelete
+            );
+
+        await sendLog({
+
+            key:
+                "invite_delete",
+
+            title:
+                "🗑️ ลบเชิญ",
+
+            description:
+                "มีการลบ Invite",
+
+            color:
+                COLORS.red,
+
+            fields: [
+
+                {
+
+                    name:
+                        "🔗 Invite",
+
+                    value:
+                        invite.code ||
+                        "ไม่ทราบ"
+                },
+
+                {
+
+                    name:
+                        "📢 ห้อง",
+
+                    value:
+                        invite.channel
+                            ? `${invite.channel}`
+                            : "ไม่ทราบ"
+                },
+
+                ...auditFields(audit)
+            ]
+        });
+    }
+);
+
+// ============================================================
+// WEBHOOK UPDATE
+// ============================================================
+
+client.on(
+    "webhookUpdate",
+    async channel => {
+
+        if (
+            channel.guild?.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        // ตรวจ Create
+        const createAudit =
+            await getAuditExecutor(
+
+                channel.guild,
+
+                AuditLogEvent.WebhookCreate
+            );
+
+        if (createAudit) {
+
+            await sendLog({
+
+                key:
+                    "webhook_create",
+
+                title:
+                    "🔗 สร้าง Webhook",
+
+                description:
+                    `มีการสร้าง Webhook ใน ${channel}`,
+
+                color:
+                    COLORS.green,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "📢 ห้อง",
+
+                        value:
+                            `${channel.name}\n\`${channel.id}\``
+                    },
+
+                    ...auditFields(
+                        createAudit
+                    )
+                ]
+            });
+
+            return;
+        }
+
+        // ตรวจ Delete
+        const deleteAudit =
+            await getAuditExecutor(
+
+                channel.guild,
+
+                AuditLogEvent.WebhookDelete
+            );
+
+        if (deleteAudit) {
+
+            await sendLog({
+
+                key:
+                    "webhook_delete",
+
+                title:
+                    "🗑️ ลบ Webhook",
+
+                description:
+                    `มีการลบ Webhook ใน ${channel}`,
+
+                color:
+                    COLORS.red,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "📢 ห้อง",
+
+                        value:
+                            `${channel.name}\n\`${channel.id}\``
+                    },
+
+                    ...auditFields(
+                        deleteAudit
+                    )
+                ]
+            });
+        }
+    }
+);
+
+// ============================================================
+// PRESENCE UPDATE
+// ============================================================
+
+client.on(
+    "presenceUpdate",
+    async (
+        oldPresence,
+        newPresence
+    ) => {
+
+        const guild =
+            newPresence.guild ||
+            oldPresence?.guild;
+
+        if (!guild) {
+
+            return;
+        }
+
+        if (
+            guild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const online =
+            getOnlineCount(guild);
+
+        const oldCount =
+            lastPresenceCount.get(
+                guild.id
+            );
+
+        if (
+            oldCount === undefined ||
+            oldCount === online
+        ) {
+
+            lastPresenceCount.set(
+                guild.id,
+                online
+            );
+
+            return;
+        }
+
+        lastPresenceCount.set(
+            guild.id,
+            online
+        );
+
+        await sendLog({
+
+            key:
+                "member_count",
+
+            title:
+                "🟢 จำนวนคนออนไลน์",
+
+            description:
+                "มีการเปลี่ยนแปลงจำนวนสมาชิกออนไลน์",
+
+            color:
+                COLORS.cyan,
+
+            fields: [
+
+                {
+
+                    name:
+                        "🟢 ออนไลน์",
+
+                    value:
+                        `${online} คน`
+                },
+
+                {
+
+                    name:
+                        "👥 สมาชิกทั้งหมด",
+
+                    value:
+                        `${guild.memberCount} คน`
+                }
+            ]
+        });
+    }
+);
+
+// ============================================================
+// MEMBER COUNT UPDATE
+// ============================================================
+
+client.on(
+    "guildMemberAdd",
+    async member => {
+
+        if (
+            member.guild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        const oldCount =
+            lastMemberCount.get(
+                member.guild.id
+            );
+
+        lastMemberCount.set(
+            member.guild.id,
+            member.guild.memberCount
+        );
+
+        if (
+            oldCount !== undefined &&
+            oldCount !==
+            member.guild.memberCount
+        ) {
+
+            await sendLog({
+
+                key:
+                    "member_count",
+
+                title:
+                    "👥 จำนวนสมาชิกเปลี่ยนแปลง",
+
+                description:
+                    "มีสมาชิกใหม่เข้ามาในเซิร์ฟเวอร์",
+
+                color:
+                    COLORS.green,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👥 จำนวนสมาชิก",
+
+                        value:
+                            `${member.guild.memberCount} คน`
+                    }
+                ]
+            });
+        }
+    }
+);
+
+client.on(
+    "guildMemberRemove",
+    async member => {
+
+        if (
+            member.guild.id !==
+            SOURCE_GUILD_ID
+        ) {
+
+            return;
+        }
+
+        lastMemberCount.set(
+            member.guild.id,
+            member.guild.memberCount
+        );
+
+        await sendLog({
+
+            key:
+                "member_count",
+
+            title:
+                "👥 จำนวนสมาชิกเปลี่ยนแปลง",
+
+            description:
+                "สมาชิกออกจากเซิร์ฟเวอร์",
+
+            color:
+                COLORS.red,
+
+            fields: [
+
+                {
+
+                    name:
+                        "👥 จำนวนสมาชิก",
+
+                    value:
+                        `${member.guild.memberCount} คน`
+                }
+            ]
+        });
+    }
+);
+
+// ============================================================
+// ERROR HANDLER
+// ============================================================
+
+client.on(
+    "error",
+    error => {
+
+        console.error(
+            "❌ Discord Client Error:",
+            error
+        );
+    }
+);
+
+client.on(
+    "shardError",
+    error => {
+
+        console.error(
+            "❌ Shard Error:",
+            error
+        );
+    }
+);
+
+process.on(
+    "unhandledRejection",
+    error => {
+
+        console.error(
+            "❌ Unhandled Promise Rejection:",
+            error
+        );
+    }
+);
+
+process.on(
+    "uncaughtException",
+    error => {
+
+        console.error(
+            "❌ Uncaught Exception:",
+            error
+        );
+    }
+);
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+
+app.get(
+    "/",
+    (req, res) => {
+
+        const uptime =
+            process.uptime();
+
+        const days =
+            Math.floor(
+                uptime / 86400
+            );
+
+        const hours =
+            Math.floor(
+                (uptime % 86400) / 3600
+            );
+
+        const minutes =
+            Math.floor(
+                (uptime % 3600) / 60
+            );
+
+        const seconds =
+            Math.floor(
+                uptime % 60
+            );
+
+        const sourceGuild =
+            getSourceGuild();
+
+        const status =
+            client.isReady()
+                ? "🟢 Online"
+                : "🟡 Connecting";
+
+        const botName =
+            client.user
+                ? client.user.tag
+                : "กำลังเชื่อมต่อ...";
+
+        const memberCount =
+            sourceGuild
+                ? sourceGuild.memberCount
+                : 0;
+
+        const onlineCount =
+            sourceGuild
+                ? getOnlineCount(
+                    sourceGuild
+                )
+                : 0;
+
+        res.send(`
+
+<!DOCTYPE html>
+
+<html lang="th">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<title>
+Meaow Log System V3
+</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+
+    margin: 0;
+
+    min-height: 100vh;
+
+    font-family:
+        Arial,
+        "Segoe UI",
+        sans-serif;
+
+    background:
+        radial-gradient(
+            circle at top,
+            #202938,
+            #0d1117 55%
+        );
+
+    color: #ffffff;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 20px;
+}
+
+.card {
+
+    width: 100%;
+
+    max-width: 480px;
+
+    background:
+        rgba(
+            22,
+            27,
+            34,
+            0.96
+        );
+
+    border:
+        1px solid #30363d;
+
+    border-radius: 18px;
+
+    padding: 32px;
+
+    box-shadow:
+        0 15px 50px
+        rgba(
+            0,
+            0,
+            0,
+            0.45
+        );
+}
+
+.logo {
+
+    width: 80px;
+
+    height: 80px;
+
+    border-radius: 50%;
+
+    margin:
+        0 auto 15px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    background: #5865F2;
+
+    font-size: 38px;
+}
+
+h1 {
+
+    text-align: center;
+
+    margin:
+        0 0 8px;
+
+    font-size: 26px;
+}
+
+.subtitle {
+
+    text-align: center;
+
+    color: #8b949e;
+
+    margin-bottom: 25px;
+}
+
+.status {
+
+    text-align: center;
+
+    padding: 10px;
+
+    border-radius: 10px;
+
+    background:
+        rgba(
+            35,
+            134,
+            54,
+            0.2
+        );
+
+    color: #57F287;
+
+    font-weight: bold;
+
+    margin-bottom: 25px;
+}
+
+.row {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    gap: 15px;
+
+    padding:
+        13px 0;
+
+    border-bottom:
+        1px solid #30363d;
+}
+
+.row:last-child {
+
+    border-bottom: none;
+}
+
+.label {
+
+    color: #8b949e;
+}
+
+.value {
+
+    text-align: right;
+
+    font-weight: bold;
+}
+
+.footer {
+
+    margin-top: 25px;
+
+    text-align: center;
+
+    color: #6e7681;
+
+    font-size: 12px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="card">
+
+<div class="logo">
+🐱
+</div>
+
+<h1>
+Meaow Log System V3
+</h1>
+
+<div class="subtitle">
+Discord Security & Audit Log
+</div>
+
+<div class="status">
+${status}
+</div>
+
+<div class="row">
+
+<div class="label">
+🤖 บอท
+</div>
+
+<div class="value">
+${botName}
+</div>
+
+</div>
+
+<div class="row">
+
+<div class="label">
+🏠 เซิร์ฟเวอร์
+</div>
+
+<div class="value">
+${sourceGuild
+    ? sourceGuild.name
+    : "ไม่พบเซิร์ฟเวอร์"}
+</div>
+
+</div>
+
+<div class="row">
+
+<div class="label">
+👥 สมาชิก
+</div>
+
+<div class="value">
+${memberCount}
+</div>
+
+</div>
+
+<div class="row">
+
+<div class="label">
+🟢 ออนไลน์
+</div>
+
+<div class="value">
+${onlineCount}
+</div>
+
+</div>
+
+<div class="row">
+
+<div class="label">
+⏱️ Uptime
+</div>
+
+<div class="value">
+${days} วัน
+${hours} ชม.
+${minutes} น.
+${seconds} วิ.
+</div>
+
+</div>
+
+<div class="footer">
+
+Meaow Log System V3 • ${thaiTime()}
+
+</div>
+
+</div>
+
+</body>
+
+</html>
+
+        `);
+    }
+);
+
+// ============================================================
+// HEALTH CHECK
+// ============================================================
+
+app.get(
+    "/health",
+    (req, res) => {
+
+        res.status(200).json({
+
+            status:
+                "ok",
+
+            bot:
+                client.isReady(),
+
+            uptime:
+                process.uptime(),
+
+            time:
+                thaiTime()
+        });
+    }
+);
+
+// ============================================================
+// START WEB SERVER
+// ============================================================
+
+app.listen(
+    PORT,
+    "0.0.0.0",
+    () => {
+
+        console.log(
+            `🌐 Dashboard เปิดที่ PORT ${PORT}`
+        );
+    }
+);
+
+// ============================================================
 // LOGIN
-// ======================================================
+// ============================================================
 
-client.login(TOKEN);
+console.log(
+    "🔐 กำลัง Login Discord..."
+);
+
+client.login(
+    TOKEN
+).catch(error => {
+
+    console.error(
+        "❌ Login Discord ไม่สำเร็จ:",
+        error.message
+    );
+
+    process.exit(1);
+});
