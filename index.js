@@ -10,6 +10,10 @@ const {
     AuditLogEvent
 } = require("discord.js");
 
+const express = require("express");
+const app = express();
+const PORT = process.env.PORT || 3000;
+
 // ======================================================
 // CONFIG
 // ======================================================
@@ -1532,6 +1536,48 @@ client.on(
         }
     }
 );
+
+// ======================================================
+// 24/7 DASHBOARD / WEB SERVER
+// ======================================================
+
+app.get("/", (req, res) => {
+    const uptime = process.uptime();
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="th">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Meaow Log System - Dashboard</title>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d1117; color: #c9d1d9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center; width: 350px; }
+                h2 { color: #5865F2; font-size: 24px; margin-bottom: 10px; margin-top: 0; }
+                .status-badge { display: inline-block; background-color: #238636; color: white; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 14px; margin: 15px 0; }
+                .info { margin: 10px 0; font-size: 15px; color: #8b949e; }
+                .info span { color: #f0f6fc; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h2>🐱 Meaow Log V2</h2>
+                <div class="status-badge">🟢 Online 24/7</div>
+                <div class="info">บอทสถานะ: <span>${client.user ? client.user.tag : "กำลังเชื่อมต่อ..."}</span></div>
+                <div class="info">เวลาทำงานต่อเนื่อง: <span>${hours} ชม. ${minutes} น. ${seconds} วิ.</span></div>
+            </div>
+        </body>
+        </html>
+    `);
+});
+
+app.listen(PORT, () => {
+    console.log(`🌐 Dashboard Server เปิดทำงานแล้วที่พอร์ต ${PORT}`);
+});
 
 // ======================================================
 // LOGIN
