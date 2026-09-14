@@ -1,5 +1,5 @@
 // ============================================================
-// MEAOW LOG SYSTEM V3
+// MEAOW LOG SYSTEM V4
 // Discord.js v14
 // Render Ready
 // ============================================================
@@ -23,17 +23,29 @@ const express = require("express");
 // ============================================================
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+const PORT =
+    process.env.PORT || 3000;
 
 // ============================================================
 // CONFIG
 // ============================================================
 
-const TOKEN = process.env.TOKEN;
-const SOURCE_GUILD_ID = process.env.SOURCE_GUILD_ID;
-const LOG_GUILD_ID = process.env.LOG_GUILD_ID;
+const TOKEN =
+    process.env.TOKEN;
 
-if (!TOKEN || !SOURCE_GUILD_ID || !LOG_GUILD_ID) {
+const SOURCE_GUILD_ID =
+    process.env.SOURCE_GUILD_ID;
+
+const LOG_GUILD_ID =
+    process.env.LOG_GUILD_ID;
+
+if (
+    !TOKEN ||
+    !SOURCE_GUILD_ID ||
+    !LOG_GUILD_ID
+) {
+
     console.error("❌ ตั้งค่า ENV ไม่ครบ");
 
     console.error(`
@@ -256,11 +268,14 @@ const COLORS = {
 // CACHE
 // ============================================================
 
-const auditCache = new Map();
+const auditCache =
+    new Map();
 
-const lastMemberCount = new Map();
+const lastMemberCount =
+    new Map();
 
-const lastPresenceCount = new Map();
+const lastPresenceCount =
+    new Map();
 
 // ============================================================
 // TIME
@@ -268,21 +283,24 @@ const lastPresenceCount = new Map();
 
 function thaiTime() {
 
-    return new Date().toLocaleString("th-TH", {
-
-        timeZone: "Asia/Bangkok",
-
-        dateStyle: "medium",
-
-        timeStyle: "medium"
-    });
+    return new Date().toLocaleString(
+        "th-TH",
+        {
+            timeZone: "Asia/Bangkok",
+            dateStyle: "medium",
+            timeStyle: "medium"
+        }
+    );
 }
 
 // ============================================================
 // SAFE TEXT
 // ============================================================
 
-function safeText(text, max = 900) {
+function safeText(
+    text,
+    max = 900
+) {
 
     if (
         text === null ||
@@ -293,11 +311,17 @@ function safeText(text, max = 900) {
         return "ไม่มีข้อมูล";
     }
 
-    text = String(text);
+    text =
+        String(text);
 
-    if (text.length > max) {
+    if (
+        text.length > max
+    ) {
 
-        return text.substring(0, max) + "...";
+        return (
+            text.substring(0, max) +
+            "..."
+        );
     }
 
     return text;
@@ -341,7 +365,8 @@ function getLogGuild() {
 
 function findLogChannel(key) {
 
-    const guild = getLogGuild();
+    const guild =
+        getLogGuild();
 
     if (!guild) {
 
@@ -349,20 +374,28 @@ function findLogChannel(key) {
     }
 
     for (
-        const [categoryName, channels]
-        of Object.entries(LOG_STRUCTURE)
+        const [
+            categoryName,
+            channels
+        ]
+        of Object.entries(
+            LOG_STRUCTURE
+        )
     ) {
 
-        const found = channels.find(
-            item => item[1] === key
-        );
+        const found =
+            channels.find(
+                item =>
+                    item[1] === key
+            );
 
         if (!found) {
 
             continue;
         }
 
-        const channelName = found[0];
+        const channelName =
+            found[0];
 
         const category =
             guild.channels.cache.find(
@@ -415,7 +448,9 @@ async function sendLog({
 
     fields = [],
 
-    thumbnail = null
+    thumbnail = null,
+
+    image = null
 }) {
 
     try {
@@ -436,7 +471,10 @@ async function sendLog({
             new EmbedBuilder()
 
                 .setTitle(
-                    safeText(title, 256)
+                    safeText(
+                        title,
+                        256
+                    )
                 )
 
                 .setColor(color)
@@ -446,28 +484,49 @@ async function sendLog({
                 .setFooter({
 
                     text:
-                        `Meaow Log V3 • ${thaiTime()}`
+                        `Meaow Log V4 • ${thaiTime()}`
                 });
 
         if (description) {
 
             embed.setDescription(
-                safeText(description, 4000)
+                safeText(
+                    description,
+                    4000
+                )
             );
         }
 
         if (fields.length) {
 
             embed.addFields(
-                fields.slice(0, 25)
+                fields.slice(
+                    0,
+                    25
+                )
             );
         }
 
         if (thumbnail) {
 
-            embed.setThumbnail(
-                thumbnail
-            );
+            try {
+
+                embed.setThumbnail(
+                    thumbnail
+                );
+
+            } catch {}
+        }
+
+        if (image) {
+
+            try {
+
+                embed.setImage(
+                    image
+                );
+
+            } catch {}
         }
 
         await channel.send({
@@ -516,7 +575,9 @@ async function getAuditExecutor(
             `${guild.id}:${action}:${targetId || "none"}`;
 
         const old =
-            auditCache.get(cacheKey);
+            auditCache.get(
+                cacheKey
+            );
 
         if (
             old &&
@@ -534,30 +595,37 @@ async function getAuditExecutor(
                 limit: 10
             });
 
-        const now = Date.now();
+        const now =
+            Date.now();
 
         const entry =
-            logs.entries.find(log => {
+            logs.entries.find(
+                log => {
 
-                const age =
-                    now - log.createdTimestamp;
+                    const age =
+                        now -
+                        log.createdTimestamp;
 
-                if (age > 15000) {
+                    if (
+                        age > 15000
+                    ) {
 
-                    return false;
+                        return false;
+                    }
+
+                    if (
+                        targetId &&
+                        log.target?.id &&
+                        log.target.id !==
+                        targetId
+                    ) {
+
+                        return false;
+                    }
+
+                    return true;
                 }
-
-                if (
-                    targetId &&
-                    log.target?.id &&
-                    log.target.id !== targetId
-                ) {
-
-                    return false;
-                }
-
-                return true;
-            });
+            );
 
         if (!entry) {
 
@@ -566,7 +634,8 @@ async function getAuditExecutor(
 
         const data = {
 
-            user: entry.executor,
+            user:
+                entry.executor,
 
             reason:
                 entry.reason ||
@@ -578,7 +647,8 @@ async function getAuditExecutor(
         auditCache.set(
             cacheKey,
             {
-                time: Date.now(),
+                time:
+                    Date.now(),
                 data
             }
         );
@@ -600,7 +670,9 @@ async function getAuditExecutor(
 // AUDIT FIELDS
 // ============================================================
 
-function auditFields(audit) {
+function auditFields(
+    audit
+) {
 
     if (!audit) {
 
@@ -615,9 +687,12 @@ function auditFields(audit) {
                 "👮 ผู้ดำเนินการ",
 
             value:
-                userInfo(audit.user),
+                userInfo(
+                    audit.user
+                ),
 
-            inline: true
+            inline:
+                true
         },
 
         {
@@ -631,7 +706,8 @@ function auditFields(audit) {
                     300
                 ),
 
-            inline: true
+            inline:
+                true
         }
     ];
 }
@@ -640,7 +716,9 @@ function auditFields(audit) {
 // MEMBER COUNT
 // ============================================================
 
-function getOnlineCount(guild) {
+function getOnlineCount(
+    guild
+) {
 
     let count = 0;
 
@@ -662,18 +740,343 @@ function getOnlineCount(guild) {
 }
 
 // ============================================================
+// ROLE PERMISSION NAME
+// ============================================================
+
+function permissionNames(
+    permissions
+) {
+
+    if (!permissions) {
+
+        return [];
+    }
+
+    const names = {
+
+        Administrator:
+            "ผู้ดูแลระบบ",
+
+        ManageGuild:
+            "จัดการเซิร์ฟเวอร์",
+
+        ManageChannels:
+            "จัดการห้อง",
+
+        ManageRoles:
+            "จัดการยศ",
+
+        ManageMessages:
+            "จัดการข้อความ",
+
+        ManageWebhooks:
+            "จัดการ Webhook",
+
+        ManageNicknames:
+            "จัดการชื่อเล่น",
+
+        KickMembers:
+            "เตะสมาชิก",
+
+        BanMembers:
+            "แบนสมาชิก",
+
+        ModerateMembers:
+            "Timeout สมาชิก",
+
+        ViewAuditLog:
+            "ดู Audit Log",
+
+        ViewChannel:
+            "ดูห้อง",
+
+        SendMessages:
+            "ส่งข้อความ",
+
+        SendMessagesInThreads:
+            "ส่งข้อความในกระทู้",
+
+        EmbedLinks:
+            "ฝังลิงก์",
+
+        AttachFiles:
+            "แนบไฟล์",
+
+        ReadMessageHistory:
+            "ดูประวัติข้อความ",
+
+        MentionEveryone:
+            "Mention Everyone",
+
+        AddReactions:
+            "เพิ่ม Reaction",
+
+        Connect:
+            "เข้าห้องเสียง",
+
+        Speak:
+            "พูดในห้องเสียง",
+
+        MuteMembers:
+            "ปิดไมค์สมาชิก",
+
+        DeafenMembers:
+            "ปิดหูสมาชิก",
+
+        MoveMembers:
+            "ย้ายสมาชิก",
+
+        Stream:
+            "สตรีม",
+
+        UseVAD:
+            "ใช้ Voice Activity",
+
+        ViewGuildInsights:
+            "ดูข้อมูลเซิร์ฟเวอร์"
+    };
+
+    return permissions
+        .toArray()
+        .map(
+            permission =>
+                names[permission] ||
+                permission
+        );
+}
+
+// ============================================================
+// ROLE CHANGE DETAILS
+// ============================================================
+
+function getRoleChanges(
+    oldRole,
+    newRole
+) {
+
+    const changes = [];
+
+    // --------------------------------------------------------
+    // NAME
+    // --------------------------------------------------------
+
+    if (
+        oldRole.name !==
+        newRole.name
+    ) {
+
+        changes.push({
+
+            name:
+                "✏️ ชื่อยศ",
+
+            value:
+                `ก่อน: **${safeText(oldRole.name, 100)}**\n` +
+                `หลัง: **${safeText(newRole.name, 100)}**`
+        });
+    }
+
+    // --------------------------------------------------------
+    // COLOR
+    // --------------------------------------------------------
+
+    if (
+        oldRole.color !==
+        newRole.color
+    ) {
+
+        const oldColor =
+            oldRole.hexColor ||
+            "#000000";
+
+        const newColor =
+            newRole.hexColor ||
+            "#000000";
+
+        changes.push({
+
+            name:
+                "🎨 สีของยศ",
+
+            value:
+                `ก่อน: \`${oldColor}\`\n` +
+                `หลัง: \`${newColor}\``
+        });
+    }
+
+    // --------------------------------------------------------
+    // MENTIONABLE
+    // --------------------------------------------------------
+
+    if (
+        oldRole.mentionable !==
+        newRole.mentionable
+    ) {
+
+        changes.push({
+
+            name:
+                "📣 Mentionable",
+
+            value:
+                `ก่อน: ${
+                    oldRole.mentionable
+                        ? "เปิด"
+                        : "ปิด"
+                }\n` +
+                `หลัง: ${
+                    newRole.mentionable
+                        ? "เปิด"
+                        : "ปิด"
+                }`
+        });
+    }
+
+    // --------------------------------------------------------
+    // HOIST
+    // --------------------------------------------------------
+
+    if (
+        oldRole.hoist !==
+        newRole.hoist
+    ) {
+
+        changes.push({
+
+            name:
+                "📌 แสดงยศแยก",
+
+            value:
+                `ก่อน: ${
+                    oldRole.hoist
+                        ? "เปิด"
+                        : "ปิด"
+                }\n` +
+                `หลัง: ${
+                    newRole.hoist
+                        ? "เปิด"
+                        : "ปิด"
+                }`
+        });
+    }
+
+    // --------------------------------------------------------
+    // POSITION
+    // --------------------------------------------------------
+
+    if (
+        oldRole.position !==
+        newRole.position
+    ) {
+
+        changes.push({
+
+            name:
+                "↕️ ตำแหน่งยศ",
+
+            value:
+                `ก่อน: \`${oldRole.position}\`\n` +
+                `หลัง: \`${newRole.position}\``
+        });
+    }
+
+    // --------------------------------------------------------
+    // PERMISSIONS
+    // --------------------------------------------------------
+
+    const oldPermissions =
+        permissionNames(
+            oldRole.permissions
+        );
+
+    const newPermissions =
+        permissionNames(
+            newRole.permissions
+        );
+
+    const addedPermissions =
+        newPermissions.filter(
+            permission =>
+                !oldPermissions.includes(
+                    permission
+                )
+        );
+
+    const removedPermissions =
+        oldPermissions.filter(
+            permission =>
+                !newPermissions.includes(
+                    permission
+                )
+        );
+
+    if (
+        addedPermissions.length
+    ) {
+
+        changes.push({
+
+            name:
+                "🟢 เพิ่มสิทธิ์",
+
+            value:
+                safeText(
+                    addedPermissions
+                        .map(
+                            permission =>
+                                `+ ${permission}`
+                        )
+                        .join("\n"),
+                    1000
+                )
+        });
+    }
+
+    if (
+        removedPermissions.length
+    ) {
+
+        changes.push({
+
+            name:
+                "🔴 ลบสิทธิ์",
+
+            value:
+                safeText(
+                    removedPermissions
+                        .map(
+                            permission =>
+                                `- ${permission}`
+                        )
+                        .join("\n"),
+                    1000
+                )
+        });
+    }
+
+    return changes;
+}
+
+// ============================================================
 // SETUP LOG SYSTEM
 // ============================================================
 
-async function setupLogSystem(guild) {
+async function setupLogSystem(
+    guild
+) {
 
     console.log(
         "🔧 กำลังตรวจสอบระบบ Log..."
     );
 
     for (
-        const [categoryName, channels]
-        of Object.entries(LOG_STRUCTURE)
+        const [
+            categoryName,
+            channels
+        ]
+        of Object.entries(
+            LOG_STRUCTURE
+        )
     ) {
 
         const categoryNameFull =
@@ -691,9 +1094,9 @@ async function setupLogSystem(guild) {
                     categoryNameFull
             );
 
-        // ====================================================
+        // ----------------------------------------------------
         // CREATE CATEGORY
-        // ====================================================
+        // ----------------------------------------------------
 
         if (!category) {
 
@@ -757,12 +1160,14 @@ async function setupLogSystem(guild) {
             }
         }
 
-        // ====================================================
+        // ----------------------------------------------------
         // CREATE CHANNELS
-        // ====================================================
+        // ----------------------------------------------------
 
         for (
-            const [channelName]
+            const [
+                channelName
+            ]
             of channels
         ) {
 
@@ -855,7 +1260,7 @@ async function setupLogSystem(guild) {
     );
 
     console.log(
-        "✅ LOG SYSTEM V3 พร้อมใช้งาน"
+        "✅ LOG SYSTEM V4 พร้อมใช้งาน"
     );
 
     console.log(
@@ -867,143 +1272,152 @@ async function setupLogSystem(guild) {
 // READY
 // ============================================================
 
-client.once("ready", async () => {
+client.once(
+    "ready",
+    async () => {
 
-    console.log("");
+        console.log("");
 
-    console.log(
-        "===================================="
-    );
-
-    console.log(
-        `🤖 ${client.user.tag}`
-    );
-
-    console.log(
-        "🚀 MEAOW LOG SYSTEM V3"
-    );
-
-    console.log(
-        "===================================="
-    );
-
-    const sourceGuild =
-        getSourceGuild();
-
-    const logGuild =
-        getLogGuild();
-
-    if (!sourceGuild) {
-
-        console.error(
-            "❌ ไม่พบ SOURCE_GUILD_ID"
+        console.log(
+            "===================================="
         );
 
-        return;
-    }
-
-    if (!logGuild) {
-
-        console.error(
-            "❌ ไม่พบ LOG_GUILD_ID"
+        console.log(
+            `🤖 ${client.user.tag}`
         );
 
-        return;
+        console.log(
+            "🚀 MEAOW LOG SYSTEM V4"
+        );
+
+        console.log(
+            "===================================="
+        );
+
+        const sourceGuild =
+            getSourceGuild();
+
+        const logGuild =
+            getLogGuild();
+
+        if (!sourceGuild) {
+
+            console.error(
+                "❌ ไม่พบ SOURCE_GUILD_ID"
+            );
+
+            return;
+        }
+
+        if (!logGuild) {
+
+            console.error(
+                "❌ ไม่พบ LOG_GUILD_ID"
+            );
+
+            return;
+        }
+
+        console.log(
+            `🏠 SOURCE: ${sourceGuild.name}`
+        );
+
+        console.log(
+            `📋 LOG: ${logGuild.name}`
+        );
+
+        await setupLogSystem(
+            logGuild
+        );
+
+        await sourceGuild.members
+            .fetch()
+            .catch(() => {});
+
+        lastMemberCount.set(
+            sourceGuild.id,
+            sourceGuild.memberCount
+        );
+
+        lastPresenceCount.set(
+            sourceGuild.id,
+            getOnlineCount(
+                sourceGuild
+            )
+        );
+
+        await sendLog({
+
+            key:
+                "bot_status",
+
+            title:
+                "🟢 LOG SYSTEM V4 ONLINE",
+
+            description:
+                "ระบบบันทึก Log ออนไลน์และพร้อมใช้งานแล้ว",
+
+            color:
+                COLORS.green,
+
+            fields: [
+
+                {
+
+                    name:
+                        "🏠 ดิสหลัก",
+
+                    value:
+                        `${sourceGuild.name}\n\`${sourceGuild.id}\``
+                },
+
+                {
+
+                    name:
+                        "📋 ดิส Log",
+
+                    value:
+                        `${logGuild.name}\n\`${logGuild.id}\``
+                },
+
+                {
+
+                    name:
+                        "👥 สมาชิก",
+
+                    value:
+                        `${sourceGuild.memberCount}`,
+
+                    inline:
+                        true
+                },
+
+                {
+
+                    name:
+                        "🟢 ออนไลน์",
+
+                    value:
+                        `${getOnlineCount(
+                            sourceGuild
+                        )}`,
+
+                    inline:
+                        true
+                },
+
+                {
+
+                    name:
+                        "⏰ เวลา",
+
+                    value:
+                        thaiTime()
+                }
+            ]
+        });
     }
-
-    console.log(
-        `🏠 SOURCE: ${sourceGuild.name}`
-    );
-
-    console.log(
-        `📋 LOG: ${logGuild.name}`
-    );
-
-    await setupLogSystem(
-        logGuild
-    );
-
-    await sourceGuild.members
-        .fetch()
-        .catch(() => {});
-
-    lastMemberCount.set(
-        sourceGuild.id,
-        sourceGuild.memberCount
-    );
-
-    lastPresenceCount.set(
-        sourceGuild.id,
-        getOnlineCount(sourceGuild)
-    );
-
-    await sendLog({
-
-        key:
-            "bot_status",
-
-        title:
-            "🟢 LOG SYSTEM V3 ONLINE",
-
-        description:
-            "ระบบบันทึก Log ออนไลน์และพร้อมใช้งานแล้ว",
-
-        color:
-            COLORS.green,
-
-        fields: [
-
-            {
-
-                name:
-                    "🏠 ดิสหลัก",
-
-                value:
-                    `${sourceGuild.name}\n\`${sourceGuild.id}\``
-            },
-
-            {
-
-                name:
-                    "📋 ดิส Log",
-
-                value:
-                    `${logGuild.name}\n\`${logGuild.id}\``
-            },
-
-            {
-
-                name:
-                    "👥 สมาชิก",
-
-                value:
-                    `${sourceGuild.memberCount}`,
-
-                inline: true
-            },
-
-            {
-
-                name:
-                    "🟢 ออนไลน์",
-
-                value:
-                    `${getOnlineCount(sourceGuild)}`,
-
-                inline: true
-            },
-
-            {
-
-                name:
-                    "⏰ เวลา",
-
-                value:
-                    thaiTime()
-            }
-        ]
-    });
-});
+);
 
 // ============================================================
 // MEMBER JOIN
@@ -1061,7 +1475,8 @@ client.on(
                     value:
                         `${member.guild.memberCount}`,
 
-                    inline: true
+                    inline:
+                        true
                 },
 
                 {
@@ -1072,12 +1487,19 @@ client.on(
                     value:
                         `\`${member.id}\``,
 
-                    inline: true
+                    inline:
+                        true
                 }
             ]
         });
 
-        if (member.user.bot) {
+        // ----------------------------------------------------
+        // BOT ADD
+        // ----------------------------------------------------
+
+        if (
+            member.user.bot
+        ) {
 
             await sendLog({
 
@@ -1104,6 +1526,54 @@ client.on(
                             userInfo(
                                 member.user
                             )
+                    }
+                ]
+            });
+        }
+
+        // ----------------------------------------------------
+        // MEMBER COUNT
+        // ----------------------------------------------------
+
+        const oldCount =
+            lastMemberCount.get(
+                member.guild.id
+            );
+
+        lastMemberCount.set(
+            member.guild.id,
+            member.guild.memberCount
+        );
+
+        if (
+            oldCount !== undefined &&
+            oldCount !==
+            member.guild.memberCount
+        ) {
+
+            await sendLog({
+
+                key:
+                    "member_count",
+
+                title:
+                    "👥 จำนวนสมาชิกเปลี่ยนแปลง",
+
+                description:
+                    "มีสมาชิกใหม่เข้ามาในเซิร์ฟเวอร์",
+
+                color:
+                    COLORS.green,
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👥 จำนวนสมาชิก",
+
+                        value:
+                            `${member.guild.memberCount} คน`
                     }
                 ]
             });
@@ -1137,9 +1607,9 @@ client.on(
                 member.id
             );
 
-        // ====================================================
+        // ----------------------------------------------------
         // KICK
-        // ====================================================
+        // ----------------------------------------------------
 
         if (auditKick) {
 
@@ -1181,14 +1651,13 @@ client.on(
                 ]
             });
 
-            return;
-        }
+        } else if (
+            member.user?.bot
+        ) {
 
-        // ====================================================
-        // BOT LEAVE
-        // ====================================================
-
-        if (member.user?.bot) {
+            // ------------------------------------------------
+            // BOT LEAVE
+            // ------------------------------------------------
 
             await sendLog({
 
@@ -1219,43 +1688,79 @@ client.on(
                 ]
             });
 
-            return;
+        } else {
+
+            // ------------------------------------------------
+            // NORMAL LEAVE
+            // ------------------------------------------------
+
+            await sendLog({
+
+                key:
+                    "member_leave",
+
+                title:
+                    "📤 สมาชิกออกจากเซิร์ฟเวอร์",
+
+                description:
+                    `${member.user?.tag || "สมาชิก"} ออกจากเซิร์ฟเวอร์`,
+
+                color:
+                    COLORS.red,
+
+                thumbnail:
+                    member.user?.displayAvatarURL({
+                        size: 256
+                    }),
+
+                fields: [
+
+                    {
+
+                        name:
+                            "👤 สมาชิก",
+
+                        value:
+                            userInfo(
+                                member.user
+                            )
+                    }
+                ]
+            });
         }
 
-        // ====================================================
-        // NORMAL LEAVE
-        // ====================================================
+        // ----------------------------------------------------
+        // MEMBER COUNT
+        // ----------------------------------------------------
+
+        lastMemberCount.set(
+            member.guild.id,
+            member.guild.memberCount
+        );
 
         await sendLog({
 
             key:
-                "member_leave",
+                "member_count",
 
             title:
-                "📤 สมาชิกออกจากเซิร์ฟเวอร์",
+                "👥 จำนวนสมาชิกเปลี่ยนแปลง",
 
             description:
-                `${member.user?.tag || "สมาชิก"} ออกจากเซิร์ฟเวอร์`,
+                "สมาชิกออกจากเซิร์ฟเวอร์",
 
             color:
                 COLORS.red,
-
-            thumbnail:
-                member.user?.displayAvatarURL({
-                    size: 256
-                }),
 
             fields: [
 
                 {
 
                     name:
-                        "👤 สมาชิก",
+                        "👥 จำนวนสมาชิก",
 
                     value:
-                        userInfo(
-                            member.user
-                        )
+                        `${member.guild.memberCount} คน`
                 }
             ]
         });
@@ -1356,19 +1861,23 @@ client.on(
 
         const addedRoles =
             [...newRoles].filter(
-                id => !oldRoles.has(id)
+                id =>
+                    !oldRoles.has(id)
             );
 
         const removedRoles =
             [...oldRoles].filter(
-                id => !newRoles.has(id)
+                id =>
+                    !newRoles.has(id)
             );
 
-        // ====================================================
+        // ----------------------------------------------------
         // ROLE ADD
-        // ====================================================
+        // ----------------------------------------------------
 
-        for (const roleId of addedRoles) {
+        for (
+            const roleId of addedRoles
+        ) {
 
             if (
                 roleId ===
@@ -1407,7 +1916,7 @@ client.on(
                     "➕ เพิ่มยศ",
 
                 description:
-                    `${newMember} ได้รับยศ ${role}`,
+                    `${newMember.user.tag} ได้รับยศ ${role.name}`,
 
                 color:
                     COLORS.green,
@@ -1439,11 +1948,13 @@ client.on(
             });
         }
 
-        // ====================================================
+        // ----------------------------------------------------
         // ROLE REMOVE
-        // ====================================================
+        // ----------------------------------------------------
 
-        for (const roleId of removedRoles) {
+        for (
+            const roleId of removedRoles
+        ) {
 
             if (
                 roleId ===
@@ -1625,6 +2136,16 @@ client.on(
             removedRoles.length
         ) {
 
+            const audit =
+                await getAuditExecutor(
+
+                    newMember.guild,
+
+                    AuditLogEvent.MemberRoleUpdate,
+
+                    newMember.id
+                );
+
             await sendLog({
 
                 key:
@@ -1660,8 +2181,9 @@ client.on(
                         value:
                             addedRoles.length
                                 ? addedRoles
-                                    .map(id =>
-                                        newMember.guild.roles.cache.get(id)?.name || id
+                                    .map(
+                                        id =>
+                                            newMember.guild.roles.cache.get(id)?.name || id
                                     )
                                     .join(", ")
                                 : "ไม่มี"
@@ -1675,12 +2197,15 @@ client.on(
                         value:
                             removedRoles.length
                                 ? removedRoles
-                                    .map(id =>
-                                        oldMember.guild.roles.cache.get(id)?.name || id
+                                    .map(
+                                        id =>
+                                            oldMember.guild.roles.cache.get(id)?.name || id
                                     )
                                     .join(", ")
                                 : "ไม่มี"
-                    }
+                    },
+
+                    ...auditFields(audit)
                 ]
             });
         }
@@ -1708,41 +2233,58 @@ client.on(
             return;
         }
 
-        if (message.author?.bot) {
+        if (
+            message.author?.bot
+        ) {
 
             return;
+        }
+
+        // ----------------------------------------------------
+        // FETCH PARTIAL MESSAGE
+        // ----------------------------------------------------
+
+        if (
+            message.partial
+        ) {
+
+            try {
+
+                await message.fetch();
+
+            } catch {}
         }
 
         const attachments =
             [...message.attachments.values()];
 
-        let imageCount = 0;
+        const images =
+            attachments.filter(
+                file =>
+                    file.contentType?.startsWith(
+                        "image/"
+                    ) ||
+                    /\.(png|jpe?g|gif|webp|bmp|svg)$/i
+                        .test(
+                            file.name || ""
+                        )
+            );
 
-        let videoCount = 0;
+        const videos =
+            attachments.filter(
+                file =>
+                    file.contentType?.startsWith(
+                        "video/"
+                    ) ||
+                    /\.(mp4|mov|webm|avi|mkv)$/i
+                        .test(
+                            file.name || ""
+                        )
+            );
 
-        for (
-            const file
-            of attachments
-        ) {
-
-            if (
-                file.contentType?.startsWith(
-                    "image/"
-                )
-            ) {
-
-                imageCount++;
-            }
-
-            if (
-                file.contentType?.startsWith(
-                    "video/"
-                )
-            ) {
-
-                videoCount++;
-            }
-        }
+        // ====================================================
+        // MESSAGE DELETE
+        // ====================================================
 
         await sendLog({
 
@@ -1786,9 +2328,12 @@ client.on(
                         "💬 ข้อความ",
 
                     value:
-                        `\`\`\`\n${safeText(
-                            message.content
-                        )}\n\`\`\``
+                        message.content
+                            ? `\`\`\`\n${safeText(
+                                message.content,
+                                700
+                            )}\n\`\`\``
+                            : "ไม่มีข้อความ"
                 },
 
                 {
@@ -1803,93 +2348,222 @@ client.on(
         });
 
         // ====================================================
-        // IMAGE
+        // IMAGE DELETE
         // ====================================================
 
-        if (imageCount > 0) {
+        if (
+            images.length > 0
+        ) {
 
-            await sendLog({
+            for (
+                const imageFile of images
+            ) {
 
-                key:
-                    "image_delete",
+                const fileName =
+                    imageFile.name ||
+                    "ไม่ทราบชื่อ";
 
-                title:
-                    "🖼️ ลบรูปภาพ",
+                const fileSize =
+                    imageFile.size
+                        ? `${(
+                            imageFile.size /
+                            1024 /
+                            1024
+                        ).toFixed(2)} MB`
+                        : "ไม่ทราบ";
 
-                description:
-                    `มีการลบรูปภาพ ${imageCount} ไฟล์`,
+                const contentType =
+                    imageFile.contentType ||
+                    "ไม่ทราบ";
 
-                color:
-                    COLORS.red,
+                const url =
+                    imageFile.url ||
+                    null;
 
-                fields: [
+                await sendLog({
 
-                    {
+                    key:
+                        "image_delete",
 
-                        name:
-                            "👤 ผู้ส่ง",
+                    title:
+                        "🖼️ ลบรูปภาพ",
 
-                        value:
-                            userInfo(
-                                message.author
-                            )
-                    },
+                    description:
+                        `${message.author?.tag || "สมาชิก"} ลบรูปภาพออกจาก ${message.channel}`,
 
-                    {
+                    color:
+                        COLORS.red,
 
-                        name:
-                            "📢 ห้อง",
+                    image:
+                        url,
 
-                        value:
-                            `${message.channel}`
-                    }
-                ]
-            });
+                    fields: [
+
+                        {
+
+                            name:
+                                "👤 ผู้ลบ / ผู้ส่ง",
+
+                            value:
+                                userInfo(
+                                    message.author
+                                )
+                        },
+
+                        {
+
+                            name:
+                                "📢 ห้อง",
+
+                            value:
+                                `${message.channel}\n\`${message.channel.id}\``
+                        },
+
+                        {
+
+                            name:
+                                "🖼️ ชื่อรูป",
+
+                            value:
+                                `\`${safeText(
+                                    fileName,
+                                    200
+                                )}\``
+                        },
+
+                        {
+
+                            name:
+                                "📦 ขนาด",
+
+                            value:
+                                fileSize,
+
+                            inline:
+                                true
+                        },
+
+                        {
+
+                            name:
+                                "📄 ประเภท",
+
+                            value:
+                                contentType,
+
+                            inline:
+                                true
+                        },
+
+                        {
+
+                            name:
+                                "🔗 URL รูป",
+
+                            value:
+                                url
+                                    ? safeText(
+                                        url,
+                                        1000
+                                    )
+                                    : "ไม่พบ URL"
+                        }
+                    ]
+                });
+            }
         }
 
         // ====================================================
-        // VIDEO
+        // VIDEO DELETE
         // ====================================================
 
-        if (videoCount > 0) {
+        if (
+            videos.length > 0
+        ) {
 
-            await sendLog({
+            for (
+                const videoFile of videos
+            ) {
 
-                key:
-                    "video_delete",
+                await sendLog({
 
-                title:
-                    "🎥 ลบวิดีโอ",
+                    key:
+                        "video_delete",
 
-                description:
-                    `มีการลบวิดีโอ ${videoCount} ไฟล์`,
+                    title:
+                        "🎥 ลบวิดีโอ",
 
-                color:
-                    COLORS.red,
+                    description:
+                        `${message.author?.tag || "สมาชิก"} ลบวิดีโอออกจาก ${message.channel}`,
 
-                fields: [
+                    color:
+                        COLORS.red,
 
-                    {
+                    fields: [
 
-                        name:
-                            "👤 ผู้ส่ง",
+                        {
 
-                        value:
-                            userInfo(
-                                message.author
-                            )
-                    },
+                            name:
+                                "👤 ผู้ลบ / ผู้ส่ง",
 
-                    {
+                            value:
+                                userInfo(
+                                    message.author
+                                )
+                        },
 
-                        name:
-                            "📢 ห้อง",
+                        {
 
-                        value:
-                            `${message.channel}`
-                    }
-                ]
-            });
+                            name:
+                                "📢 ห้อง",
+
+                            value:
+                                `${message.channel}\n\`${message.channel.id}\``
+                        },
+
+                        {
+
+                            name:
+                                "🎥 ชื่อวิดีโอ",
+
+                            value:
+                                `\`${safeText(
+                                    videoFile.name ||
+                                    "ไม่ทราบชื่อ",
+                                    200
+                                )}\``
+                        },
+
+                        {
+
+                            name:
+                                "📦 ขนาด",
+
+                            value:
+                                videoFile.size
+                                    ? `${(
+                                        videoFile.size /
+                                        1024 /
+                                        1024
+                                    ).toFixed(2)} MB`
+                                    : "ไม่ทราบ"
+                        },
+
+                        {
+
+                            name:
+                                "🔗 URL",
+
+                            value:
+                                safeText(
+                                    videoFile.url ||
+                                    "ไม่พบ URL",
+                                    1000
+                                )
+                        }
+                    ]
+                });
+            }
         }
     }
 );
@@ -1918,9 +2592,29 @@ client.on(
             return;
         }
 
-        if (oldMessage.author?.bot) {
+        if (
+            oldMessage.author?.bot
+        ) {
 
             return;
+        }
+
+        if (
+            oldMessage.partial ||
+            newMessage.partial
+        ) {
+
+            try {
+
+                await oldMessage.fetch();
+
+            } catch {}
+
+            try {
+
+                await newMessage.fetch();
+
+            } catch {}
         }
 
         if (
@@ -1964,7 +2658,7 @@ client.on(
                         "📢 ห้อง",
 
                     value:
-                        `${oldMessage.channel}`
+                        `${oldMessage.channel}\n\`${oldMessage.channel.id}\``
                 },
 
                 {
@@ -2023,9 +2717,9 @@ client.on(
             return;
         }
 
-        // ====================================================
+        // ----------------------------------------------------
         // JOIN
-        // ====================================================
+        // ----------------------------------------------------
 
         if (
             !oldState.channel &&
@@ -2071,9 +2765,9 @@ client.on(
             });
         }
 
-        // ====================================================
+        // ----------------------------------------------------
         // LEAVE
-        // ====================================================
+        // ----------------------------------------------------
 
         if (
             oldState.channel &&
@@ -2174,9 +2868,9 @@ client.on(
             }
         }
 
-        // ====================================================
+        // ----------------------------------------------------
         // MOVE
-        // ====================================================
+        // ----------------------------------------------------
 
         if (
             oldState.channel &&
@@ -2249,9 +2943,9 @@ client.on(
             });
         }
 
-        // ====================================================
+        // ----------------------------------------------------
         // SELF MUTE
-        // ====================================================
+        // ----------------------------------------------------
 
         if (
             oldState.selfMute !==
@@ -2294,9 +2988,9 @@ client.on(
             });
         }
 
-        // ====================================================
+        // ----------------------------------------------------
         // SERVER MUTE
-        // ====================================================
+        // ----------------------------------------------------
 
         if (
             oldState.serverMute !==
@@ -2351,9 +3045,9 @@ client.on(
             });
         }
 
-        // ====================================================
+        // ----------------------------------------------------
         // SELF DEAF
-        // ====================================================
+        // ----------------------------------------------------
 
         if (
             oldState.selfDeaf !==
@@ -2396,9 +3090,9 @@ client.on(
             });
         }
 
-        // ====================================================
+        // ----------------------------------------------------
         // STREAM
-        // ====================================================
+        // ----------------------------------------------------
 
         if (
             oldState.streaming !==
@@ -2452,9 +3146,9 @@ client.on(
             });
         }
 
-        // ====================================================
+        // ----------------------------------------------------
         // CAMERA
-        // ====================================================
+        // ----------------------------------------------------
 
         if (
             oldState.selfVideo !==
@@ -2497,9 +3191,9 @@ client.on(
             });
         }
 
-        // ====================================================
-        // VOICE SERVER STATUS
-        // ====================================================
+        // ----------------------------------------------------
+        // SUPPRESS
+        // ----------------------------------------------------
 
         if (
             oldState.suppress !==
@@ -2581,7 +3275,9 @@ client.on(
         const isBlacklist =
             reason
                 .toLowerCase()
-                .includes("blacklist");
+                .includes(
+                    "blacklist"
+                );
 
         await sendLog({
 
@@ -2657,7 +3353,9 @@ client.on(
         const isBlacklist =
             reason
                 .toLowerCase()
-                .includes("blacklist");
+                .includes(
+                    "blacklist"
+                );
 
         await sendLog({
 
@@ -2742,6 +3440,16 @@ client.on(
                 "🎤 สร้างเวที";
         }
 
+        const audit =
+            await getAuditExecutor(
+
+                channel.guild,
+
+                AuditLogEvent.ChannelCreate,
+
+                channel.id
+            );
+
         await sendLog({
 
             key,
@@ -2772,7 +3480,9 @@ client.on(
 
                     value:
                         `${channel.type}`
-                }
+                },
+
+                ...auditFields(audit)
             ]
         });
     }
@@ -2812,6 +3522,16 @@ client.on(
                 "🗑️ ลบประกาศ";
         }
 
+        const audit =
+            await getAuditExecutor(
+
+                channel.guild,
+
+                AuditLogEvent.ChannelDelete,
+
+                channel.id
+            );
+
         await sendLog({
 
             key,
@@ -2833,7 +3553,9 @@ client.on(
 
                     value:
                         `${channel.name}\n\`${channel.id}\``
-                }
+                },
+
+                ...auditFields(audit)
             ]
         });
     }
@@ -2858,19 +3580,62 @@ client.on(
             return;
         }
 
+        const changes = [];
+
         if (
-            oldChannel.name ===
-            newChannel.name &&
-            oldChannel.parentId ===
-            newChannel.parentId &&
-            oldChannel.topic ===
-            newChannel.topic &&
-            oldChannel.rateLimitPerUser ===
+            oldChannel.name !==
+            newChannel.name
+        ) {
+
+            changes.push(
+                `ชื่อ: ${oldChannel.name} → ${newChannel.name}`
+            );
+        }
+
+        if (
+            oldChannel.parentId !==
+            newChannel.parentId
+        ) {
+
+            changes.push(
+                "หมวดหมู่มีการเปลี่ยนแปลง"
+            );
+        }
+
+        if (
+            oldChannel.topic !==
+            newChannel.topic
+        ) {
+
+            changes.push(
+                "Topic มีการเปลี่ยนแปลง"
+            );
+        }
+
+        if (
+            oldChannel.rateLimitPerUser !==
             newChannel.rateLimitPerUser
         ) {
 
+            changes.push(
+                `Slowmode: ${oldChannel.rateLimitPerUser || 0}s → ${newChannel.rateLimitPerUser || 0}s`
+            );
+        }
+
+        if (!changes.length) {
+
             return;
         }
+
+        const audit =
+            await getAuditExecutor(
+
+                newChannel.guild,
+
+                AuditLogEvent.ChannelUpdate,
+
+                newChannel.id
+            );
 
         await sendLog({
 
@@ -2900,20 +3665,16 @@ client.on(
                 {
 
                     name:
-                        "ชื่อเดิม",
+                        "🔧 แก้ไขอะไรบ้าง",
 
                     value:
-                        oldChannel.name
+                        safeText(
+                            changes.join("\n"),
+                            1500
+                        )
                 },
 
-                {
-
-                    name:
-                        "ชื่อใหม่",
-
-                    value:
-                        newChannel.name
-                }
+                ...auditFields(audit)
             ]
         });
     }
@@ -2968,6 +3729,47 @@ client.on(
 
                     value:
                         `${role.name}\n\`${role.id}\``
+                },
+
+                {
+
+                    name:
+                        "🎨 สี",
+
+                    value:
+                        role.hexColor ||
+                        "#000000",
+
+                    inline:
+                        true
+                },
+
+                {
+
+                    name:
+                        "📣 Mentionable",
+
+                    value:
+                        role.mentionable
+                            ? "เปิด"
+                            : "ปิด",
+
+                    inline:
+                        true
+                },
+
+                {
+
+                    name:
+                        "📌 แสดงแยก",
+
+                    value:
+                        role.hoist
+                            ? "เปิด"
+                            : "ปิด",
+
+                    inline:
+                        true
                 },
 
                 ...auditFields(audit)
@@ -3027,6 +3829,19 @@ client.on(
                         `${role.name}\n\`${role.id}\``
                 },
 
+                {
+
+                    name:
+                        "🎨 สี",
+
+                    value:
+                        role.hexColor ||
+                        "#000000",
+
+                    inline:
+                        true
+                },
+
                 ...auditFields(audit)
             ]
         });
@@ -3034,7 +3849,7 @@ client.on(
 );
 
 // ============================================================
-// ROLE UPDATE
+// ROLE UPDATE - DETAILED
 // ============================================================
 
 client.on(
@@ -3052,17 +3867,14 @@ client.on(
             return;
         }
 
+        const changes =
+            getRoleChanges(
+                oldRole,
+                newRole
+            );
+
         if (
-            oldRole.name ===
-            newRole.name &&
-            oldRole.color ===
-            newRole.color &&
-            oldRole.permissions.bitfield ===
-            newRole.permissions.bitfield &&
-            oldRole.hoist ===
-            newRole.hoist &&
-            oldRole.mentionable ===
-            newRole.mentionable
+            !changes.length
         ) {
 
             return;
@@ -3078,6 +3890,53 @@ client.on(
                 newRole.id
             );
 
+        const fields = [
+
+            {
+
+                name:
+                    "🎖️ ยศ",
+
+                value:
+                    `${newRole.name}\n\`${newRole.id}\``
+            },
+
+            {
+
+                name:
+                    "🔧 แก้ไขทั้งหมด",
+
+                value:
+                    `${changes.length} รายการ`
+            }
+        ];
+
+        // ----------------------------------------------------
+        // ADD CHANGES
+        // ----------------------------------------------------
+
+        for (
+            const change of changes
+        ) {
+
+            fields.push({
+
+                name:
+                    change.name,
+
+                value:
+                    change.value
+            });
+        }
+
+        // ----------------------------------------------------
+        // AUDIT
+        // ----------------------------------------------------
+
+        fields.push(
+            ...auditFields(audit)
+        );
+
         await sendLog({
 
             key:
@@ -3087,42 +3946,12 @@ client.on(
                 "✏️ แก้ไขยศ",
 
             description:
-                `มีการแก้ไขยศ ${newRole.name}`,
+                `มีการแก้ไขยศ **${newRole.name}**`,
 
             color:
                 COLORS.yellow,
 
-            fields: [
-
-                {
-
-                    name:
-                        "🎖️ ยศ",
-
-                    value:
-                        `${newRole.name}\n\`${newRole.id}\``
-                },
-
-                {
-
-                    name:
-                        "ชื่อเดิม",
-
-                    value:
-                        oldRole.name
-                },
-
-                {
-
-                    name:
-                        "ชื่อใหม่",
-
-                    value:
-                        newRole.name
-                },
-
-                ...auditFields(audit)
-            ]
+            fields
         });
     }
 );
@@ -3178,6 +4007,16 @@ client.on(
             );
         }
 
+        if (
+            oldGuild.banner !==
+            newGuild.banner
+        ) {
+
+            changes.push(
+                "Banner เซิร์ฟเวอร์มีการเปลี่ยนแปลง"
+            );
+        }
+
         if (!changes.length) {
 
             return;
@@ -3224,7 +4063,10 @@ client.on(
                         "🔧 การเปลี่ยนแปลง",
 
                     value:
-                        changes.join("\n")
+                        safeText(
+                            changes.join("\n"),
+                            1500
+                        )
                 },
 
                 ...auditFields(audit)
@@ -3544,7 +4386,6 @@ client.on(
             return;
         }
 
-        // ตรวจ Create
         const createAudit =
             await getAuditExecutor(
 
@@ -3589,7 +4430,6 @@ client.on(
             return;
         }
 
-        // ตรวจ Delete
         const deleteAudit =
             await getAuditExecutor(
 
@@ -3663,7 +4503,9 @@ client.on(
         }
 
         const online =
-            getOnlineCount(guild);
+            getOnlineCount(
+                guild
+            );
 
         const oldCount =
             lastPresenceCount.get(
@@ -3720,114 +4562,6 @@ client.on(
 
                     value:
                         `${guild.memberCount} คน`
-                }
-            ]
-        });
-    }
-);
-
-// ============================================================
-// MEMBER COUNT UPDATE
-// ============================================================
-
-client.on(
-    "guildMemberAdd",
-    async member => {
-
-        if (
-            member.guild.id !==
-            SOURCE_GUILD_ID
-        ) {
-
-            return;
-        }
-
-        const oldCount =
-            lastMemberCount.get(
-                member.guild.id
-            );
-
-        lastMemberCount.set(
-            member.guild.id,
-            member.guild.memberCount
-        );
-
-        if (
-            oldCount !== undefined &&
-            oldCount !==
-            member.guild.memberCount
-        ) {
-
-            await sendLog({
-
-                key:
-                    "member_count",
-
-                title:
-                    "👥 จำนวนสมาชิกเปลี่ยนแปลง",
-
-                description:
-                    "มีสมาชิกใหม่เข้ามาในเซิร์ฟเวอร์",
-
-                color:
-                    COLORS.green,
-
-                fields: [
-
-                    {
-
-                        name:
-                            "👥 จำนวนสมาชิก",
-
-                        value:
-                            `${member.guild.memberCount} คน`
-                    }
-                ]
-            });
-        }
-    }
-);
-
-client.on(
-    "guildMemberRemove",
-    async member => {
-
-        if (
-            member.guild.id !==
-            SOURCE_GUILD_ID
-        ) {
-
-            return;
-        }
-
-        lastMemberCount.set(
-            member.guild.id,
-            member.guild.memberCount
-        );
-
-        await sendLog({
-
-            key:
-                "member_count",
-
-            title:
-                "👥 จำนวนสมาชิกเปลี่ยนแปลง",
-
-            description:
-                "สมาชิกออกจากเซิร์ฟเวอร์",
-
-            color:
-                COLORS.red,
-
-            fields: [
-
-                {
-
-                    name:
-                        "👥 จำนวนสมาชิก",
-
-                    value:
-                        `${member.guild.memberCount} คน`
                 }
             ]
         });
@@ -3954,7 +4688,7 @@ app.get(
 >
 
 <title>
-Meaow Log System V3
+Meaow Log System V4
 </title>
 
 <style>
@@ -4143,7 +4877,7 @@ h1 {
 </div>
 
 <h1>
-Meaow Log System V3
+Meaow Log System V4
 </h1>
 
 <div class="subtitle">
@@ -4221,7 +4955,7 @@ ${seconds} วิ.
 
 <div class="footer">
 
-Meaow Log System V3 • ${thaiTime()}
+Meaow Log System V4 • ${thaiTime()}
 
 </div>
 
