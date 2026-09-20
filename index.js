@@ -790,16 +790,18 @@ function getVoiceMemberCount(guild) {
 async function updateVoiceMemberCount(guild, oldState = null, newState = null) {
 
     if (!guild || guild.id !== SOURCE_GUILD_ID) return;
+
+    // สำคัญ: อัปเดต Set ก่อนตรวจ lock
+    // เพื่อไม่ให้ event เข้า/ออกห้องหายไปในช่วงที่ API กำลังเปลี่ยนชื่อห้อง
+    if (oldState && newState) {
+        applyVoiceStateToCount(oldState, newState);
+    }
+
     if (voiceStatsUpdateRunning) return;
 
     voiceStatsUpdateRunning = true;
 
     try {
-        // ถ้าเรียกจาก voiceStateUpdate ให้ใช้สถานะใหม่ของสมาชิกทันที
-        if (oldState && newState) {
-            applyVoiceStateToCount(oldState, newState);
-        }
-
         const count = getVoiceMemberCount(guild);
 
         let statsChannel = guild.channels.cache.find(
