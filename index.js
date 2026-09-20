@@ -740,126 +740,6 @@ function getOnlineCount(
 }
 
 // ============================================================
-// ============================================================
-// SERVER STATS - คนลงห้อง
-// ============================================================
-
-const VOICE_STATS_CATEGORY_ID = "1541279107361542214";
-const VOICE_STATS_PREFIX = "★ ⌇ แมวลงห้อง :";
-
-// นับทุกสมาชิกที่อยู่ใน Voice/Stage รวมบอทด้วย
-// ใช้คิวเพื่อไม่ให้การอัปเดตคนเข้า/ออกชนกัน
-const voiceMembers = new Set();
-let voiceStatsQueue = Promise.resolve();
-
-function rebuildVoiceMembers(guild) {
-    voiceMembers.clear();
-
-    for (const state of guild.voiceStates.cache.values()) {
-        if (state.channelId && state.id) {
-            voiceMembers.add(state.id);
-        }
-    }
-
-    return voiceMembers.size;
-}
-
-function applyVoiceStateToCount(oldState, newState) {
-    const memberId =
-        newState?.id ||
-        oldState?.id ||
-        newState?.member?.id ||
-        oldState?.member?.id;
-
-    if (!memberId) return;
-
-    if (newState?.channelId) {
-        // เข้า / ย้าย / กลับเข้าห้อง
-        voiceMembers.add(memberId);
-    } else {
-        // ออกจาก Voice/Stage
-        voiceMembers.delete(memberId);
-    }
-}
-
-function queueVoiceStatsUpdate(guild, options = {}) {
-    const { oldState = null, newState = null, rebuild = false } = options;
-
-    voiceStatsQueue = voiceStatsQueue
-        .then(async () => {
-            if (!guild || guild.id !== SOURCE_GUILD_ID) return;
-
-            // ทุก 1 วินาที rebuild จาก voiceStates cache เพื่อกันค่าค้าง
-            // ส่วน event เข้า/ออก/ย้าย จะปรับ Set จาก oldState/newState โดยตรง
-            if (rebuild) {
-                rebuildVoiceMembers(guild);
-            } else if (oldState || newState) {
-                applyVoiceStateToCount(oldState, newState);
-            }
-
-            const count = voiceMembers.size;
-
-            let statsChannel = guild.channels.cache.find(
-                channel =>
-                    channel.type === ChannelType.GuildVoice &&
-                    channel.parentId === VOICE_STATS_CATEGORY_ID &&
-                    channel.name.startsWith(VOICE_STATS_PREFIX)
-            );
-
-            if (!statsChannel) {
-                statsChannel = await guild.channels.create({
-                    name: `${VOICE_STATS_PREFIX} ${count}`,
-                    type: ChannelType.GuildVoice,
-                    parent: VOICE_STATS_CATEGORY_ID,
-                    permissionOverwrites: [
-                        {
-                            id: guild.roles.everyone.id,
-                            deny: [
-                                PermissionFlagsBits.Connect,
-                                PermissionFlagsBits.Speak
-                            ]
-                        },
-                        {
-                            id: client.user.id,
-                            allow: [
-                                PermissionFlagsBits.ViewChannel,
-                                PermissionFlagsBits.ManageChannels
-                            ]
-                        }
-                    ]
-                });
-
-                console.log(`✅ สร้างห้อง: ${statsChannel.name}`);
-                return;
-            }
-
-            const newName = `${VOICE_STATS_PREFIX} ${count}`;
-
-            // เปลี่ยนชื่อเฉพาะเมื่อเลขไม่ตรง
-            if (statsChannel.name !== newName) {
-                await statsChannel.setName(
-                    newName,
-                    "อัปเดตจำนวนสมาชิกใน Voice/Stage"
-                );
-                console.log(`🔊 VOICE COUNT = ${count} → ${newName}`);
-            }
-        })
-        .catch(error => {
-            console.error("❌ SERVER STATS คนลงห้อง:", error.message);
-        });
-
-    return voiceStatsQueue;
-}
-
-async function updateVoiceMemberCount(guild, oldState = null, newState = null) {
-    return queueVoiceStatsUpdate(guild, {
-        oldState,
-        newState,
-        rebuild: !oldState && !newState
-    });
-}
-
-// ============================================================
 // ROLE PERMISSION NAME
 // ============================================================
 
@@ -1450,19 +1330,9 @@ client.once(
             logGuild
         );
 
-        // ----------------------------------------------------
-        // SERVER STATS - คนลงห้อง
-        // ----------------------------------------------------
-
         await sourceGuild.members
             .fetch()
             .catch(() => {});
-
-        rebuildVoiceMembers(sourceGuild);
-
-        await updateVoiceMemberCount(
-            sourceGuild
-        );
 
         lastMemberCount.set(
             sourceGuild.id,
@@ -1547,23 +1417,6 @@ client.once(
             ]
         });
     }
-);
-
-// ============================================================
-// VOICE COUNT BACKUP SYNC
-// ============================================================
-
-setInterval(
-    async () => {
-
-        const guild = getSourceGuild();
-
-        if (guild) {
-            await updateVoiceMemberCount(guild);
-        }
-
-    },
-    1000
 );
 
 // ============================================================
@@ -3387,18 +3240,6 @@ client.on(
                 ]
             });
         }
-
-        // ====================================================
-        // UPDATE SERVER STATS - คนลงห้อง
-        // ====================================================
-
-        // อัปเดตตัวเลขทันที โดยใช้ oldState/newState โดยตรง
-        // ไม่ต้องรอ cache ของ Discord เปลี่ยนก่อน
-        await updateVoiceMemberCount(
-            newState.guild,
-            oldState,
-            newState
-        );
     }
 );
 
@@ -4831,13 +4672,6 @@ app.get(
                 )
                 : 0;
 
-        const voiceMemberCount =
-            sourceGuild
-                ? getVoiceMemberCount(
-                    sourceGuild
-                )
-                : 0;
-
         res.send(`
 
 <!DOCTYPE html>
@@ -5100,18 +4934,6 @@ ${memberCount}
 
 <div class="value">
 ${onlineCount}
-</div>
-
-</div>
-
-<div class="row">
-
-<div class="label">
-👥 คนลงห้อง
-</div>
-
-<div class="value">
-${voiceMemberCount}
 </div>
 
 </div>
