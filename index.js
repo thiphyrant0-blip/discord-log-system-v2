@@ -740,6 +740,156 @@ function getOnlineCount(
 }
 
 // ============================================================
+// SERVER STATS - คนลงห้อง
+// ============================================================
+
+function getVoiceMemberCount(guild) {
+
+    let count = 0;
+
+    guild.channels.cache.forEach(channel => {
+
+        if (!channel.isVoiceBased()) {
+            return;
+        }
+
+        channel.members.forEach(member => {
+
+            if (!member.user.bot) {
+                count++;
+            }
+
+        });
+
+    });
+
+    return count;
+}
+
+async function updateVoiceMemberCount(guild) {
+
+    try {
+
+        if (!guild) {
+            return;
+        }
+
+        const count =
+            getVoiceMemberCount(guild);
+
+        let statsCategory =
+            guild.channels.cache.find(channel =>
+                channel.type === ChannelType.GuildCategory &&
+                channel.name === "📊 SERVER STATS"
+            );
+
+        if (!statsCategory) {
+
+            statsCategory =
+                await guild.channels.create({
+
+                    name: "📊 SERVER STATS",
+
+                    type: ChannelType.GuildCategory,
+
+                    permissionOverwrites: [
+
+                        {
+                            id: guild.roles.everyone.id,
+
+                            deny: [
+                                PermissionFlagsBits.Connect
+                            ]
+                        },
+
+                        {
+                            id: client.user.id,
+
+                            allow: [
+                                PermissionFlagsBits.ViewChannel,
+                                PermissionFlagsBits.ManageChannels
+                            ]
+                        }
+                    ]
+                });
+
+            console.log(
+                "✅ สร้าง Category: 📊 SERVER STATS"
+            );
+        }
+
+        let statsChannel =
+            guild.channels.cache.find(channel =>
+                channel.type === ChannelType.GuildVoice &&
+                channel.parentId === statsCategory.id &&
+                channel.name.startsWith("👥 คนลงห้อง :")
+            );
+
+        if (!statsChannel) {
+
+            statsChannel =
+                await guild.channels.create({
+
+                    name: `👥 คนลงห้อง : ${count}`,
+
+                    type: ChannelType.GuildVoice,
+
+                    parent: statsCategory.id,
+
+                    permissionOverwrites: [
+
+                        {
+                            id: guild.roles.everyone.id,
+                            deny: [
+                                PermissionFlagsBits.Connect,
+                                PermissionFlagsBits.Speak
+                            ]
+                        },
+
+                        {
+                            id: client.user.id,
+                            allow: [
+                                PermissionFlagsBits.ViewChannel,
+                                PermissionFlagsBits.ManageChannels
+                            ]
+                        }
+                    ]
+                });
+
+            console.log(
+                `✅ สร้างห้องสถิติ: 👥 คนลงห้อง : ${count}`
+            );
+
+            return;
+        }
+
+        const newName =
+            `👥 คนลงห้อง : ${count}`;
+
+        if (statsChannel.name !== newName) {
+
+            await statsChannel
+                .setName(newName)
+                .catch(error => {
+
+                    console.error(
+                        "❌ อัปเดตห้องคนลงห้องไม่ได้:",
+                        error.message
+                    );
+
+                });
+        }
+
+    } catch (error) {
+
+        console.error(
+            "❌ SERVER STATS คนลงห้อง:",
+            error.message
+        );
+    }
+}
+
+// ============================================================
 // ROLE PERMISSION NAME
 // ============================================================
 
@@ -1328,6 +1478,14 @@ client.once(
 
         await setupLogSystem(
             logGuild
+        );
+
+        // ----------------------------------------------------
+        // SERVER STATS - คนลงห้อง
+        // ----------------------------------------------------
+
+        await updateVoiceMemberCount(
+            sourceGuild
         );
 
         await sourceGuild.members
@@ -3240,6 +3398,14 @@ client.on(
                 ]
             });
         }
+
+        // ====================================================
+        // UPDATE SERVER STATS - คนลงห้อง
+        // ====================================================
+
+        await updateVoiceMemberCount(
+            newState.guild
+        );
     }
 );
 
@@ -4672,6 +4838,13 @@ app.get(
                 )
                 : 0;
 
+        const voiceMemberCount =
+            sourceGuild
+                ? getVoiceMemberCount(
+                    sourceGuild
+                )
+                : 0;
+
         res.send(`
 
 <!DOCTYPE html>
@@ -4934,6 +5107,18 @@ ${memberCount}
 
 <div class="value">
 ${onlineCount}
+</div>
+
+</div>
+
+<div class="row">
+
+<div class="label">
+👥 คนลงห้อง
+</div>
+
+<div class="value">
+${voiceMemberCount}
 </div>
 
 </div>
