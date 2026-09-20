@@ -747,39 +747,67 @@ function getOnlineCount(
 const VOICE_STATS_CATEGORY_ID = "1541279107361542214";
 const VOICE_STATS_PREFIX = "★ ⌇ แมวลงห้อง :";
 
-function getVoiceMemberCount(guild) {
+// เก็บสมาชิกทั้งหมดที่กำลังอยู่ใน Voice/Stage แบบถาวรในหน่วยความจำ
+// เพื่อให้ JOIN / LEAVE / MOVE อัปเดตได้ทันที แม้ cache ของ Discord จะยังไม่ทันเปลี่ยน
+const voiceHumanMembers = new Set();
+let voiceStatsUpdateRunning = false;
 
-    const memberIds = new Set();
+function rebuildVoiceHumanMembers(guild) {
+    voiceHumanMembers.clear();
 
     for (const state of guild.voiceStates.cache.values()) {
-
-        if (!state.channelId) {
-            continue;
-        }
+        if (!state.channelId) continue;
 
         const member = state.member;
 
-        if (member?.user?.bot) {
-            continue;
-        }
-
-        if (member?.id) {
-            memberIds.add(member.id);
+        if (state.id) {
+            voiceHumanMembers.add(state.id);
         }
     }
 
-    return memberIds.size;
+    return voiceHumanMembers.size;
 }
 
-async function updateVoiceMemberCount(guild) {
+function applyVoiceStateToCount(oldState, newState) {
+    const member = newState.member || oldState.member;
+    if (!member) return;
+
+    const memberId = member.id;
+    if (!memberId) return;
+
+    // ออกจาก Voice/Stage
+    if (!newState.channelId) {
+        voiceHumanMembers.delete(memberId);
+        return;
+    }
+
+    // เข้า / ย้าย / กลับเข้าห้อง
+    voiceHumanMembers.add(memberId);
+}
+
+function getVoiceMemberCount(guild) {
+    // ใช้ Set ที่ถูกอัปเดตจาก voiceStateUpdate เป็นหลัก
+    // และ rebuild เฉพาะกรณี Set ยังไม่มีข้อมูลตอนเริ่มต้น
+    if (voiceHumanMembers.size === 0 && guild.voiceStates.cache.size > 0) {
+        rebuildVoiceHumanMembers(guild);
+    }
+
+    return voiceHumanMembers.size;
+}
+
+async function updateVoiceMemberCount(guild, oldState = null, newState = null) {
+
+    if (!guild || guild.id !== SOURCE_GUILD_ID) return;
+    if (voiceStatsUpdateRunning) return;
+
+    voiceStatsUpdateRunning = true;
 
     try {
-
-        if (!guild || guild.id !== SOURCE_GUILD_ID) {
-            return;
+        // ถ้าเรียกจาก voiceStateUpdate ให้ใช้สถานะใหม่ของสมาชิกทันที
+        if (oldState && newState) {
+            applyVoiceStateToCount(oldState, newState);
         }
 
-        // ใช้ VoiceState โดยตรง เพื่อให้ตอนออก/ย้ายห้องลดจำนวนได้ทันที
         const count = getVoiceMemberCount(guild);
 
         let statsChannel = guild.channels.cache.find(
@@ -789,9 +817,7 @@ async function updateVoiceMemberCount(guild) {
                 channel.name.startsWith(VOICE_STATS_PREFIX)
         );
 
-        // ถ้าไม่มีห้อง ให้สร้างใหม่ในหมวดที่กำหนด
         if (!statsChannel) {
-
             statsChannel = await guild.channels.create({
                 name: `${VOICE_STATS_PREFIX} ${count}`,
                 type: ChannelType.GuildVoice,
@@ -817,21 +843,22 @@ async function updateVoiceMemberCount(guild) {
             console.log(`✅ สร้างห้อง: ${statsChannel.name}`);
         }
 
-        // เปลี่ยนชื่อทุกครั้งที่ตรวจ เพื่อให้ตัวเลขตรงกับสถานะปัจจุบัน
         const newName = `${VOICE_STATS_PREFIX} ${count}`;
 
+        // เปลี่ยนเฉพาะตอนตัวเลขเปลี่ยนจริง เพื่อลด API calls / rate limit
         if (statsChannel.name !== newName) {
             await statsChannel.setName(
                 newName,
                 "อัปเดตจำนวนสมาชิกใน Voice/Stage"
             );
-        } else {
-            // ยังคงตรวจและยืนยันค่าทุกครั้ง โดยไม่ทำ API call ซ้ำเมื่อชื่อถูกต้อง
-            console.log(`🔊 VOICE COUNT = ${count}`);
+
+            console.log(`🔊 VOICE COUNT = ${count} → ${newName}`);
         }
 
     } catch (error) {
         console.error("❌ SERVER STATS คนลงห้อง:", error.message);
+    } finally {
+        voiceStatsUpdateRunning = false;
     }
 }
 
@@ -1430,13 +1457,15 @@ client.once(
         // SERVER STATS - คนลงห้อง
         // ----------------------------------------------------
 
-        await updateVoiceMemberCount(
-            sourceGuild
-        );
-
         await sourceGuild.members
             .fetch()
             .catch(() => {});
+
+        rebuildVoiceHumanMembers(sourceGuild);
+
+        await updateVoiceMemberCount(
+            sourceGuild
+        );
 
         lastMemberCount.set(
             sourceGuild.id,
@@ -3366,14 +3395,13 @@ client.on(
         // UPDATE SERVER STATS - คนลงห้อง
         // ====================================================
 
+        // อัปเดตตัวเลขทันที โดยใช้ oldState/newState โดยตรง
+        // ไม่ต้องรอ cache ของ Discord เปลี่ยนก่อน
         await updateVoiceMemberCount(
-            newState.guild
+            newState.guild,
+            oldState,
+            newState
         );
-
-        // ตรวจซ้ำหลัง Discord อัปเดต VoiceState cache เสร็จ
-        setTimeout(() => {
-            updateVoiceMemberCount(newState.guild).catch(() => {});
-        }, 100);
     }
 );
 
