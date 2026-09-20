@@ -747,113 +747,116 @@ function getOnlineCount(
 const VOICE_STATS_CATEGORY_ID = "1541279107361542214";
 const VOICE_STATS_PREFIX = "★ ⌇ แมวลงห้อง :";
 
-// เก็บสมาชิกทุกคนที่กำลังอยู่ใน Voice/Stage แบบถาวรในหน่วยความจำ
-// รวมสมาชิกทั่วไป + บอท เพื่อให้ JOIN / LEAVE / MOVE อัปเดตได้ทันที
+// นับทุกสมาชิกที่อยู่ใน Voice/Stage รวมบอทด้วย
+// ใช้คิวเพื่อไม่ให้การอัปเดตคนเข้า/ออกชนกัน
 const voiceMembers = new Set();
-let voiceStatsUpdateRunning = false;
+let voiceStatsQueue = Promise.resolve();
 
 function rebuildVoiceMembers(guild) {
     voiceMembers.clear();
 
     for (const state of guild.voiceStates.cache.values()) {
-        if (!state.channelId) continue;
-        if (state.id) voiceMembers.add(state.id);
+        if (state.channelId && state.id) {
+            voiceMembers.add(state.id);
+        }
     }
 
     return voiceMembers.size;
 }
 
 function applyVoiceStateToCount(oldState, newState) {
-    const memberId = newState.id || oldState.id || newState.member?.id || oldState.member?.id;
+    const memberId =
+        newState?.id ||
+        oldState?.id ||
+        newState?.member?.id ||
+        oldState?.member?.id;
+
     if (!memberId) return;
 
-    // ออกจาก Voice/Stage
-    if (!newState.channelId) {
+    if (newState?.channelId) {
+        // เข้า / ย้าย / กลับเข้าห้อง
+        voiceMembers.add(memberId);
+    } else {
+        // ออกจาก Voice/Stage
         voiceMembers.delete(memberId);
-        return;
     }
-
-    // เข้า / ย้าย / กลับเข้าห้อง — รวมบอทด้วย
-    voiceMembers.add(memberId);
 }
 
-function getVoiceMemberCount(guild) {
-    // ใช้ Set ที่อัปเดตจาก voiceStateUpdate เป็นหลัก
-    // และ rebuild ตอนเริ่มต้น/กรณีข้อมูลยังไม่พร้อม
-    if (voiceMembers.size === 0 && guild.voiceStates.cache.size > 0) {
-        rebuildVoiceMembers(guild);
-    }
+function queueVoiceStatsUpdate(guild, options = {}) {
+    const { oldState = null, newState = null, rebuild = false } = options;
 
-    return voiceMembers.size;
+    voiceStatsQueue = voiceStatsQueue
+        .then(async () => {
+            if (!guild || guild.id !== SOURCE_GUILD_ID) return;
+
+            // ทุก 1 วินาที rebuild จาก voiceStates cache เพื่อกันค่าค้าง
+            // ส่วน event เข้า/ออก/ย้าย จะปรับ Set จาก oldState/newState โดยตรง
+            if (rebuild) {
+                rebuildVoiceMembers(guild);
+            } else if (oldState || newState) {
+                applyVoiceStateToCount(oldState, newState);
+            }
+
+            const count = voiceMembers.size;
+
+            let statsChannel = guild.channels.cache.find(
+                channel =>
+                    channel.type === ChannelType.GuildVoice &&
+                    channel.parentId === VOICE_STATS_CATEGORY_ID &&
+                    channel.name.startsWith(VOICE_STATS_PREFIX)
+            );
+
+            if (!statsChannel) {
+                statsChannel = await guild.channels.create({
+                    name: `${VOICE_STATS_PREFIX} ${count}`,
+                    type: ChannelType.GuildVoice,
+                    parent: VOICE_STATS_CATEGORY_ID,
+                    permissionOverwrites: [
+                        {
+                            id: guild.roles.everyone.id,
+                            deny: [
+                                PermissionFlagsBits.Connect,
+                                PermissionFlagsBits.Speak
+                            ]
+                        },
+                        {
+                            id: client.user.id,
+                            allow: [
+                                PermissionFlagsBits.ViewChannel,
+                                PermissionFlagsBits.ManageChannels
+                            ]
+                        }
+                    ]
+                });
+
+                console.log(`✅ สร้างห้อง: ${statsChannel.name}`);
+                return;
+            }
+
+            const newName = `${VOICE_STATS_PREFIX} ${count}`;
+
+            // เปลี่ยนชื่อเฉพาะเมื่อเลขไม่ตรง
+            if (statsChannel.name !== newName) {
+                await statsChannel.setName(
+                    newName,
+                    "อัปเดตจำนวนสมาชิกใน Voice/Stage"
+                );
+                console.log(`🔊 VOICE COUNT = ${count} → ${newName}`);
+            }
+        })
+        .catch(error => {
+            console.error("❌ SERVER STATS คนลงห้อง:", error.message);
+        });
+
+    return voiceStatsQueue;
 }
 
 async function updateVoiceMemberCount(guild, oldState = null, newState = null) {
-
-    if (!guild || guild.id !== SOURCE_GUILD_ID) return;
-
-    // สำคัญ: อัปเดต Set ก่อนตรวจ lock
-    // เพื่อไม่ให้ event เข้า/ออกห้องหายไปในช่วงที่ API กำลังเปลี่ยนชื่อห้อง
-    if (oldState && newState) {
-        applyVoiceStateToCount(oldState, newState);
-    }
-
-    if (voiceStatsUpdateRunning) return;
-
-    voiceStatsUpdateRunning = true;
-
-    try {
-        const count = getVoiceMemberCount(guild);
-
-        let statsChannel = guild.channels.cache.find(
-            channel =>
-                channel.type === ChannelType.GuildVoice &&
-                channel.parentId === VOICE_STATS_CATEGORY_ID &&
-                channel.name.startsWith(VOICE_STATS_PREFIX)
-        );
-
-        if (!statsChannel) {
-            statsChannel = await guild.channels.create({
-                name: `${VOICE_STATS_PREFIX} ${count}`,
-                type: ChannelType.GuildVoice,
-                parent: VOICE_STATS_CATEGORY_ID,
-                permissionOverwrites: [
-                    {
-                        id: guild.roles.everyone.id,
-                        deny: [
-                            PermissionFlagsBits.Connect,
-                            PermissionFlagsBits.Speak
-                        ]
-                    },
-                    {
-                        id: client.user.id,
-                        allow: [
-                            PermissionFlagsBits.ViewChannel,
-                            PermissionFlagsBits.ManageChannels
-                        ]
-                    }
-                ]
-            });
-
-            console.log(`✅ สร้างห้อง: ${statsChannel.name}`);
-        }
-
-        const newName = `${VOICE_STATS_PREFIX} ${count}`;
-
-        // เปลี่ยนเฉพาะตอนตัวเลขเปลี่ยนจริง เพื่อลด API calls / rate limit
-        if (statsChannel.name !== newName) {
-            await statsChannel.setName(
-                newName,
-                "อัปเดตจำนวนสมาชิกใน Voice/Stage"
-            );
-
-            console.log(`🔊 VOICE COUNT = ${count} → ${newName}`);
-        }
-
-    } catch (error) {
-        console.error("❌ SERVER STATS คนลงห้อง:", error.message);
-    } finally {
-        voiceStatsUpdateRunning = false;
-    }
+    return queueVoiceStatsUpdate(guild, {
+        oldState,
+        newState,
+        rebuild: !oldState && !newState
+    });
 }
 
 // ============================================================
