@@ -749,21 +749,29 @@ const VOICE_STATS_PREFIX = "👥 คนลงห้อง :";
 
 function getVoiceMemberCount(guild) {
 
+    if (!guild) {
+        return 0;
+    }
+
+    // นับจากสมาชิกที่อยู่ใน Voice / Stage จริง ๆ
+    // เพื่อให้ตอน "ออกห้อง" ลดจำนวนได้ทันที
     const memberIds = new Set();
 
-    for (const state of guild.voiceStates.cache.values()) {
+    for (const channel of guild.channels.cache.values()) {
 
-        if (!state.channelId) {
+        if (
+            channel.type !== ChannelType.GuildVoice &&
+            channel.type !== ChannelType.GuildStageVoice
+        ) {
             continue;
         }
 
-        const member = state.member;
+        for (const member of channel.members.values()) {
 
-        if (member?.user?.bot) {
-            continue;
-        }
+            if (member.user?.bot) {
+                continue;
+            }
 
-        if (member?.id) {
             memberIds.add(member.id);
         }
     }
@@ -781,7 +789,6 @@ async function updateVoiceMemberCount(guild) {
 
         const count = getVoiceMemberCount(guild);
 
-        // ใช้เฉพาะห้องในหมวดที่กำหนดเท่านั้น
         let statsChannel = guild.channels.cache.find(
             channel =>
                 channel.type === ChannelType.GuildVoice &&
@@ -789,15 +796,12 @@ async function updateVoiceMemberCount(guild) {
                 channel.name.startsWith(VOICE_STATS_PREFIX)
         );
 
-        // ถ้ายังไม่มี ให้สร้างในหมวด 1541279107361542214
         if (!statsChannel) {
 
             statsChannel = await guild.channels.create({
 
                 name: `${VOICE_STATS_PREFIX} ${count}`,
-
                 type: ChannelType.GuildVoice,
-
                 parent: VOICE_STATS_CATEGORY_ID,
 
                 permissionOverwrites: [
@@ -819,27 +823,24 @@ async function updateVoiceMemberCount(guild) {
             });
 
             console.log(
-                `✅ สร้างห้องสถิติในหมวด ${VOICE_STATS_CATEGORY_ID}: ${statsChannel.name}`
+                `✅ สร้างห้องสถิติ: ${statsChannel.name}`
             );
 
             return;
         }
 
-        // เปลี่ยนเฉพาะตัวเลขด้านท้าย ไม่เปลี่ยนข้อความหน้าห้อง
-        const newName = statsChannel.name.replace(
-            /\s*\d+\s*$/,
-            ` ${count}`
-        );
+        // เปลี่ยนเฉพาะเลขท้ายห้อง เช่น 17 -> 16
+        const newName = `${VOICE_STATS_PREFIX} ${count}`;
 
         if (statsChannel.name !== newName) {
 
             await statsChannel.setName(
                 newName,
-                "อัปเดตเฉพาะจำนวนสมาชิกใน Voice ทุก 1 วินาที"
+                "อัปเดตจำนวนสมาชิก Voice/Stage ทุก 1 วินาที"
             );
 
             console.log(
-                `🔊 VOICE COUNT = ${count} | ${statsChannel.name}`
+                `🔊 VOICE COUNT = ${count}`
             );
         }
 
@@ -854,6 +855,8 @@ async function updateVoiceMemberCount(guild) {
 
 // ============================================================
 // ROLE PERMISSION NAME
+// ============================================================
+
 // ============================================================
 
 function permissionNames(
@@ -3383,9 +3386,7 @@ client.on(
         // UPDATE SERVER STATS - คนลงห้อง
         // ====================================================
 
-        await updateVoiceMemberCount(
-            newState.guild
-        );
+        await updateVoiceMemberCount(newState.guild);
     }
 );
 
