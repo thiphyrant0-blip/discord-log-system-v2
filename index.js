@@ -40,6 +40,9 @@ const SOURCE_GUILD_ID =
 const LOG_GUILD_ID =
     process.env.LOG_GUILD_ID;
 
+const VOICE_COUNT_CHANNEL_ID =
+    "1551177753808867418";
+
 if (
     !TOKEN ||
     !SOURCE_GUILD_ID ||
@@ -769,123 +772,31 @@ function getVoiceMemberCount(guild) {
 async function updateVoiceMemberCount(guild) {
 
     try {
+        const channel = await guild.channels.fetch(VOICE_COUNT_CHANNEL_ID);
 
-        if (!guild) {
+        if (!channel) {
+            console.error(`❌ ไม่พบห้องคนลงห้อง: ${VOICE_COUNT_CHANNEL_ID}`);
             return;
         }
 
-        const count =
-            getVoiceMemberCount(guild);
+        let count = 0;
 
-        let statsCategory =
-            guild.channels.cache.find(channel =>
-                channel.type === ChannelType.GuildCategory &&
-                channel.name === "📊 SERVER STATS"
-            );
-
-        if (!statsCategory) {
-
-            statsCategory =
-                await guild.channels.create({
-
-                    name: "📊 SERVER STATS",
-
-                    type: ChannelType.GuildCategory,
-
-                    permissionOverwrites: [
-
-                        {
-                            id: guild.roles.everyone.id,
-
-                            deny: [
-                                PermissionFlagsBits.Connect
-                            ]
-                        },
-
-                        {
-                            id: client.user.id,
-
-                            allow: [
-                                PermissionFlagsBits.ViewChannel,
-                                PermissionFlagsBits.ManageChannels
-                            ]
-                        }
-                    ]
-                });
-
-            console.log(
-                "✅ สร้าง Category: 📊 SERVER STATS"
-            );
+        for (const [, voiceChannel] of guild.channels.cache) {
+            if (!voiceChannel.isVoiceBased()) continue;
+            for (const [, member] of voiceChannel.members) {
+                if (!member.user.bot) count++;
+            }
         }
 
-        let statsChannel =
-            guild.channels.cache.find(channel =>
-                channel.type === ChannelType.GuildVoice &&
-                channel.parentId === statsCategory.id &&
-                channel.name.startsWith("👥 คนลงห้อง :")
-            );
+        const newName = `👥 คนลงห้อง : ${count}`;
 
-        if (!statsChannel) {
-
-            statsChannel =
-                await guild.channels.create({
-
-                    name: `👥 คนลงห้อง : ${count}`,
-
-                    type: ChannelType.GuildVoice,
-
-                    parent: statsCategory.id,
-
-                    permissionOverwrites: [
-
-                        {
-                            id: guild.roles.everyone.id,
-                            deny: [
-                                PermissionFlagsBits.Connect,
-                                PermissionFlagsBits.Speak
-                            ]
-                        },
-
-                        {
-                            id: client.user.id,
-                            allow: [
-                                PermissionFlagsBits.ViewChannel,
-                                PermissionFlagsBits.ManageChannels
-                            ]
-                        }
-                    ]
-                });
-
-            console.log(
-                `✅ สร้างห้องสถิติ: 👥 คนลงห้อง : ${count}`
-            );
-
-            return;
+        if (channel.name !== newName) {
+            await channel.setName(newName, "อัปเดตจำนวนสมาชิกในห้องเสียง");
         }
 
-        const newName =
-            `👥 คนลงห้อง : ${count}`;
-
-        if (statsChannel.name !== newName) {
-
-            await statsChannel
-                .setName(newName)
-                .catch(error => {
-
-                    console.error(
-                        "❌ อัปเดตห้องคนลงห้องไม่ได้:",
-                        error.message
-                    );
-
-                });
-        }
-
+        console.log(`👥 คนลงห้อง: ${count}`);
     } catch (error) {
-
-        console.error(
-            "❌ SERVER STATS คนลงห้อง:",
-            error.message
-        );
+        console.error("❌ อัปเดตคนลงห้องไม่ได้:", error.message);
     }
 }
 
