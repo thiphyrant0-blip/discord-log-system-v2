@@ -740,23 +740,15 @@ function getOnlineCount(
 }
 
 // ============================================================
-// AUTO VOICE MEMBER STATS
+// SERVER STATS - คนลงห้อง
 // ============================================================
-
-const VOICE_STATS_CHANNEL_PREFIX = "👥 คนลงห้อง :";
-let voiceStatsUpdating = false;
-let lastVoiceCount = new Map();
 
 function getVoiceMemberCount(guild) {
 
-    if (!guild) {
-        return 0;
-    }
+    const memberIds = new Set();
 
-    const uniqueMembers = new Set();
-
-    // Discord.js VoiceState cache is the most direct source for
-    // everyone currently connected to Voice / Stage channels.
+    // GuildVoiceStates is the source of truth for who is currently connected.
+    // A Set prevents a member from being counted twice.
     for (const state of guild.voiceStates.cache.values()) {
 
         if (!state.channelId) {
@@ -765,63 +757,58 @@ function getVoiceMemberCount(guild) {
 
         const member = state.member;
 
-        if (member && member.user && member.user.bot) {
+        if (member?.user?.bot) {
             continue;
         }
 
-        uniqueMembers.add(state.id);
+        if (member?.id) {
+            memberIds.add(member.id);
+        }
     }
 
-    return uniqueMembers.size;
+    return memberIds.size;
 }
 
-async function updateVoiceStatsChannel(guild, force = false) {
-
-    if (!guild || guild.id !== SOURCE_GUILD_ID) {
-        return;
-    }
-
-    if (voiceStatsUpdating) {
-        return;
-    }
-
-    voiceStatsUpdating = true;
+async function updateVoiceMemberCount(guild) {
 
     try {
 
-        const count = getVoiceMemberCount(guild);
-        const previous = lastVoiceCount.get(guild.id);
-
-        if (!force && previous === count) {
+        if (!guild || guild.id !== SOURCE_GUILD_ID) {
             return;
         }
 
-        lastVoiceCount.set(guild.id, count);
+        const count = getVoiceMemberCount(guild);
 
-        // Reuse an existing stats voice channel if one already exists.
-        let statsChannel = guild.channels.cache.find(channel =>
-            channel.type === ChannelType.GuildVoice &&
-            channel.name.startsWith(VOICE_STATS_CHANNEL_PREFIX)
+        console.log(`🔊 VOICE COUNT = ${count}`);
+
+        // Find an existing statistics voice channel anywhere in the server.
+        let statsChannel = guild.channels.cache.find(
+            channel =>
+                channel.type === ChannelType.GuildVoice &&
+                channel.name.startsWith("👥 คนลงห้อง :")
         );
 
+        // Create ONLY the voice channel. No SERVER STATS category is created.
         if (!statsChannel) {
 
             statsChannel = await guild.channels.create({
 
-                name: `${VOICE_STATS_CHANNEL_PREFIX} ${count}`,
+                name: `👥 คนลงห้อง : ${count}`,
+
                 type: ChannelType.GuildVoice,
 
                 permissionOverwrites: [
                     {
                         id: guild.roles.everyone.id,
-                        allow: [PermissionFlagsBits.ViewChannel],
-                        deny: [PermissionFlagsBits.Connect]
+                        deny: [
+                            PermissionFlagsBits.Connect,
+                            PermissionFlagsBits.Speak
+                        ]
                     },
                     {
-                        id: guild.members.me.id,
+                        id: client.user.id,
                         allow: [
                             PermissionFlagsBits.ViewChannel,
-                            PermissionFlagsBits.Connect,
                             PermissionFlagsBits.ManageChannels
                         ]
                     }
@@ -829,38 +816,38 @@ async function updateVoiceStatsChannel(guild, force = false) {
             });
 
             console.log(
-                `📊 สร้างห้องสถิติ: ${statsChannel.name}`
+                `✅ สร้างห้องสถิติ: ${statsChannel.name}`
             );
 
+            return;
         }
 
-        const wantedName =
-            `${VOICE_STATS_CHANNEL_PREFIX} ${count}`;
+        // If the old channel is inside the old SERVER STATS category,
+        // move it to the server root instead of creating another category.
+        if (statsChannel.parentId) {
+            await statsChannel.setParent(null).catch(() => {});
+        }
 
-        if (statsChannel.name !== wantedName) {
+        const newName = `👥 คนลงห้อง : ${count}`;
 
-            await statsChannel.setName(wantedName);
+        if (statsChannel.name !== newName) {
 
-            console.log(
-                `🔊 VOICE COUNT = ${count} | เปลี่ยนชื่อเป็น: ${wantedName}`
+            await statsChannel.setName(
+                newName,
+                "อัปเดตจำนวนสมาชิกใน Voice ทุกห้อง"
             );
-        } else {
 
             console.log(
-                `🔊 VOICE COUNT = ${count} | ห้องถูกต้องแล้ว`
+                `✅ อัปเดตห้องสถิติ: ${newName}`
             );
         }
 
     } catch (error) {
 
         console.error(
-            "❌ อัปเดตห้องจำนวนคนลงห้องไม่ได้:",
+            "❌ SERVER STATS คนลงห้อง:",
             error.message
         );
-
-    } finally {
-
-        voiceStatsUpdating = false;
     }
 }
 
@@ -1455,6 +1442,14 @@ client.once(
             logGuild
         );
 
+        // ----------------------------------------------------
+        // SERVER STATS - คนลงห้อง
+        // ----------------------------------------------------
+
+        await updateVoiceMemberCount(
+            sourceGuild
+        );
+
         await sourceGuild.members
             .fetch()
             .catch(() => {});
@@ -1470,17 +1465,6 @@ client.once(
                 sourceGuild
             )
         );
-
-        // สร้าง/อัปเดตห้องสถิติอัตโนมัติในเซิร์ฟเวอร์หลัก
-        await updateVoiceStatsChannel(
-            sourceGuild,
-            true
-        );
-
-        // ตรวจสอบซ้ำเป็นระยะ เผื่อ Voice State เปลี่ยนก่อน event มาถึง
-        setInterval(() => {
-            updateVoiceStatsChannel(sourceGuild);
-        }, 5000);
 
         await sendLog({
 
@@ -1553,6 +1537,23 @@ client.once(
             ]
         });
     }
+);
+
+// ============================================================
+// VOICE COUNT BACKUP SYNC
+// ============================================================
+
+setInterval(
+    async () => {
+
+        const guild = getSourceGuild();
+
+        if (guild) {
+            await updateVoiceMemberCount(guild);
+        }
+
+    },
+    3000
 );
 
 // ============================================================
@@ -3376,6 +3377,14 @@ client.on(
                 ]
             });
         }
+
+        // ====================================================
+        // UPDATE SERVER STATS - คนลงห้อง
+        // ====================================================
+
+        await updateVoiceMemberCount(
+            newState.guild
+        );
     }
 );
 
@@ -4607,12 +4616,6 @@ client.on(
                 ]
             });
         }
-        // อัปเดตจำนวนคนใน Voice/Stage ทุกห้องทันทีที่มี Voice State เปลี่ยน
-        await updateVoiceStatsChannel(
-            newState.guild,
-            true
-        );
-
     }
 );
 
@@ -4810,6 +4813,13 @@ app.get(
         const onlineCount =
             sourceGuild
                 ? getOnlineCount(
+                    sourceGuild
+                )
+                : 0;
+
+        const voiceMemberCount =
+            sourceGuild
+                ? getVoiceMemberCount(
                     sourceGuild
                 )
                 : 0;
@@ -5076,6 +5086,18 @@ ${memberCount}
 
 <div class="value">
 ${onlineCount}
+</div>
+
+</div>
+
+<div class="row">
+
+<div class="label">
+👥 คนลงห้อง
+</div>
+
+<div class="value">
+${voiceMemberCount}
 </div>
 
 </div>
