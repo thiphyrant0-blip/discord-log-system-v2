@@ -220,6 +220,39 @@ async function setupLogSystem(guild) {
   console.log(`✅ พร้อม ${ok} ห้อง | ❌ มีปัญหา ${bad} ห้อง`);
 }
 
+async function updateVoiceCountRealtime(guild) {
+  try {
+    const CHANNEL_ID = process.env.VOICE_COUNT_CHANNEL_ID || "1551177753808867418";
+    const statChannel = await guild.channels.fetch(CHANNEL_ID).catch(() => null);
+
+    if (!statChannel) {
+      console.error(`❌ ไม่พบห้องนับคนลงห้อง: ${CHANNEL_ID}`);
+      return;
+    }
+
+    // นับสมาชิกจาก VoiceState ของทุกห้องในเซิร์ฟเวอร์
+    // 1 สมาชิก = 1 ครั้ง และไม่นับบอท
+    let count = 0;
+    for (const [, voiceState] of guild.voiceStates.cache) {
+      if (!voiceState.channelId) continue;
+      const member = voiceState.member || guild.members.cache.get(voiceState.id);
+      if (member?.user?.bot) continue;
+      count++;
+    }
+
+    const newName = `👥 คนลงห้อง : ${count}`;
+
+    console.log(`🔊 VOICE COUNT = ${count} | ${newName}`);
+
+    if (statChannel.name !== newName) {
+      await statChannel.setName(newName, "อัปเดตจำนวนสมาชิกใน Voice ทุกห้อง");
+      console.log(`✅ เปลี่ยนชื่อห้องเป็น: ${newName}`);
+    }
+  } catch (err) {
+    console.error("❌ updateVoiceCountRealtime:", err);
+  }
+}
+
 function roleChanges(oldR,newR) {
   const out=[];
   if(oldR.name!==newR.name) out.push({name:"✏️ ชื่อยศ",value:`ก่อน: **${safe(oldR.name,100)}**\nหลัง: **${safe(newR.name,100)}**`});
