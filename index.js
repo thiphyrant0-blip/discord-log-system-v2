@@ -740,15 +740,17 @@ function getOnlineCount(
 }
 
 // ============================================================
+// ============================================================
 // SERVER STATS - คนลงห้อง
 // ============================================================
+
+const VOICE_STATS_CATEGORY_ID = "1541279107361542214";
+const VOICE_STATS_PREFIX = "👥 คนลงห้อง :";
 
 function getVoiceMemberCount(guild) {
 
     const memberIds = new Set();
 
-    // GuildVoiceStates is the source of truth for who is currently connected.
-    // A Set prevents a member from being counted twice.
     for (const state of guild.voiceStates.cache.values()) {
 
         if (!state.channelId) {
@@ -779,23 +781,24 @@ async function updateVoiceMemberCount(guild) {
 
         const count = getVoiceMemberCount(guild);
 
-        console.log(`🔊 VOICE COUNT = ${count}`);
-
-        // Find an existing statistics voice channel anywhere in the server.
+        // ใช้เฉพาะห้องในหมวดที่กำหนดเท่านั้น
         let statsChannel = guild.channels.cache.find(
             channel =>
                 channel.type === ChannelType.GuildVoice &&
-                channel.name.startsWith("👥 คนลงห้อง :")
+                channel.parentId === VOICE_STATS_CATEGORY_ID &&
+                channel.name.startsWith(VOICE_STATS_PREFIX)
         );
 
-        // Create ONLY the voice channel. No SERVER STATS category is created.
+        // ถ้ายังไม่มี ให้สร้างในหมวด 1541279107361542214
         if (!statsChannel) {
 
             statsChannel = await guild.channels.create({
 
-                name: `👥 คนลงห้อง : ${count}`,
+                name: `${VOICE_STATS_PREFIX} ${count}`,
 
                 type: ChannelType.GuildVoice,
+
+                parent: VOICE_STATS_CATEGORY_ID,
 
                 permissionOverwrites: [
                     {
@@ -816,29 +819,27 @@ async function updateVoiceMemberCount(guild) {
             });
 
             console.log(
-                `✅ สร้างห้องสถิติ: ${statsChannel.name}`
+                `✅ สร้างห้องสถิติในหมวด ${VOICE_STATS_CATEGORY_ID}: ${statsChannel.name}`
             );
 
             return;
         }
 
-        // If the old channel is inside the old SERVER STATS category,
-        // move it to the server root instead of creating another category.
-        if (statsChannel.parentId) {
-            await statsChannel.setParent(null).catch(() => {});
-        }
-
-        const newName = `👥 คนลงห้อง : ${count}`;
+        // เปลี่ยนเฉพาะตัวเลขด้านท้าย ไม่เปลี่ยนข้อความหน้าห้อง
+        const newName = statsChannel.name.replace(
+            /\s*\d+\s*$/,
+            ` ${count}`
+        );
 
         if (statsChannel.name !== newName) {
 
             await statsChannel.setName(
                 newName,
-                "อัปเดตจำนวนสมาชิกใน Voice ทุกห้อง"
+                "อัปเดตเฉพาะจำนวนสมาชิกใน Voice ทุก 1 วินาที"
             );
 
             console.log(
-                `✅ อัปเดตห้องสถิติ: ${newName}`
+                `🔊 VOICE COUNT = ${count} | ${statsChannel.name}`
             );
         }
 
