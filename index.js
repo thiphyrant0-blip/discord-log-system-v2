@@ -747,52 +747,44 @@ function getOnlineCount(
 const VOICE_STATS_CATEGORY_ID = "1541279107361542214";
 const VOICE_STATS_PREFIX = "★ ⌇ แมวลงห้อง :";
 
-// เก็บสมาชิกทั้งหมดที่กำลังอยู่ใน Voice/Stage แบบถาวรในหน่วยความจำ
-// เพื่อให้ JOIN / LEAVE / MOVE อัปเดตได้ทันที แม้ cache ของ Discord จะยังไม่ทันเปลี่ยน
-const voiceHumanMembers = new Set();
+// เก็บสมาชิกทุกคนที่กำลังอยู่ใน Voice/Stage แบบถาวรในหน่วยความจำ
+// รวมสมาชิกทั่วไป + บอท เพื่อให้ JOIN / LEAVE / MOVE อัปเดตได้ทันที
+const voiceMembers = new Set();
 let voiceStatsUpdateRunning = false;
 
-function rebuildVoiceHumanMembers(guild) {
-    voiceHumanMembers.clear();
+function rebuildVoiceMembers(guild) {
+    voiceMembers.clear();
 
     for (const state of guild.voiceStates.cache.values()) {
         if (!state.channelId) continue;
-
-        const member = state.member;
-
-        if (state.id) {
-            voiceHumanMembers.add(state.id);
-        }
+        if (state.id) voiceMembers.add(state.id);
     }
 
-    return voiceHumanMembers.size;
+    return voiceMembers.size;
 }
 
 function applyVoiceStateToCount(oldState, newState) {
-    const member = newState.member || oldState.member;
-    if (!member) return;
-
-    const memberId = member.id;
+    const memberId = newState.id || oldState.id || newState.member?.id || oldState.member?.id;
     if (!memberId) return;
 
     // ออกจาก Voice/Stage
     if (!newState.channelId) {
-        voiceHumanMembers.delete(memberId);
+        voiceMembers.delete(memberId);
         return;
     }
 
-    // เข้า / ย้าย / กลับเข้าห้อง
-    voiceHumanMembers.add(memberId);
+    // เข้า / ย้าย / กลับเข้าห้อง — รวมบอทด้วย
+    voiceMembers.add(memberId);
 }
 
 function getVoiceMemberCount(guild) {
-    // ใช้ Set ที่ถูกอัปเดตจาก voiceStateUpdate เป็นหลัก
-    // และ rebuild เฉพาะกรณี Set ยังไม่มีข้อมูลตอนเริ่มต้น
-    if (voiceHumanMembers.size === 0 && guild.voiceStates.cache.size > 0) {
-        rebuildVoiceHumanMembers(guild);
+    // ใช้ Set ที่อัปเดตจาก voiceStateUpdate เป็นหลัก
+    // และ rebuild ตอนเริ่มต้น/กรณีข้อมูลยังไม่พร้อม
+    if (voiceMembers.size === 0 && guild.voiceStates.cache.size > 0) {
+        rebuildVoiceMembers(guild);
     }
 
-    return voiceHumanMembers.size;
+    return voiceMembers.size;
 }
 
 async function updateVoiceMemberCount(guild, oldState = null, newState = null) {
@@ -1461,7 +1453,7 @@ client.once(
             .fetch()
             .catch(() => {});
 
-        rebuildVoiceHumanMembers(sourceGuild);
+        rebuildVoiceMembers(sourceGuild);
 
         await updateVoiceMemberCount(
             sourceGuild
