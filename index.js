@@ -769,6 +769,8 @@ function getVoiceMemberCount(guild) {
     return count;
 }
 
+const lastVoiceMemberCount = new Map();
+
 async function updateVoiceMemberCount(guild) {
 
     try {
@@ -789,12 +791,20 @@ async function updateVoiceMemberCount(guild) {
         }
 
         const newName = `👥 คนลงห้อง : ${count}`;
+        const lastCount = lastVoiceMemberCount.get(guild.id);
 
-        if (channel.name !== newName) {
-            await channel.setName(newName, "อัปเดตจำนวนสมาชิกในห้องเสียง");
+        // อัปเดตทันทีเมื่อจำนวนเปลี่ยน หรือชื่อห้องไม่ตรงกับจำนวนจริง
+        if (lastCount !== count || channel.name !== newName) {
+            if (channel.name !== newName) {
+                await channel.setName(
+                    newName,
+                    "อัปเดตจำนวนสมาชิกในห้องเสียงแบบเรียลไทม์"
+                );
+            }
+
+            lastVoiceMemberCount.set(guild.id, count);
+            console.log(`👥 คนลงห้องจริง: ${count}`);
         }
-
-        console.log(`👥 คนลงห้อง: ${count}`);
     } catch (error) {
         console.error("❌ อัปเดตคนลงห้องไม่ได้:", error.message);
     }
@@ -1398,6 +1408,15 @@ client.once(
         await updateVoiceMemberCount(
             sourceGuild
         );
+
+        // ตรวจสอบจำนวนจริงซ้ำทุก 5 วินาที เพื่อกันกรณี Voice State หลุด/แคชคลาดเคลื่อน
+        setInterval(async () => {
+            try {
+                await updateVoiceMemberCount(sourceGuild);
+            } catch (error) {
+                console.error("❌ ตรวจสอบจำนวนคนลงห้องไม่ได้:", error.message);
+            }
+        }, 5000);
 
         await sourceGuild.members
             .fetch()
