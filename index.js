@@ -745,30 +745,26 @@ function getOnlineCount(
 // ============================================================
 
 const VOICE_STATS_CATEGORY_ID = "1541279107361542214";
-const VOICE_STATS_PREFIX = "👥 คนลงห้อง :";
+const VOICE_STATS_PREFIX = "★ ⌇ แมวลงห้อง :";
 
 function getVoiceMemberCount(guild) {
 
     const memberIds = new Set();
 
-    for (const channel of guild.channels.cache.values()) {
+    for (const state of guild.voiceStates.cache.values()) {
 
-        if (
-            channel.type !== ChannelType.GuildVoice &&
-            channel.type !== ChannelType.GuildStageVoice
-        ) {
+        if (!state.channelId) {
             continue;
         }
 
-        for (const member of channel.members.values()) {
+        const member = state.member;
 
-            if (member?.user?.bot) {
-                continue;
-            }
+        if (member?.user?.bot) {
+            continue;
+        }
 
-            if (member?.id) {
-                memberIds.add(member.id);
-            }
+        if (member?.id) {
+            memberIds.add(member.id);
         }
     }
 
@@ -783,9 +779,9 @@ async function updateVoiceMemberCount(guild) {
             return;
         }
 
+        // ใช้ VoiceState โดยตรง เพื่อให้ตอนออก/ย้ายห้องลดจำนวนได้ทันที
         const count = getVoiceMemberCount(guild);
 
-        // ใช้เฉพาะห้องในหมวดที่กำหนดเท่านั้น
         let statsChannel = guild.channels.cache.find(
             channel =>
                 channel.type === ChannelType.GuildVoice &&
@@ -793,17 +789,13 @@ async function updateVoiceMemberCount(guild) {
                 channel.name.startsWith(VOICE_STATS_PREFIX)
         );
 
-        // ถ้ายังไม่มี ให้สร้างในหมวด 1541279107361542214
+        // ถ้าไม่มีห้อง ให้สร้างใหม่ในหมวดที่กำหนด
         if (!statsChannel) {
 
             statsChannel = await guild.channels.create({
-
                 name: `${VOICE_STATS_PREFIX} ${count}`,
-
                 type: ChannelType.GuildVoice,
-
                 parent: VOICE_STATS_CATEGORY_ID,
-
                 permissionOverwrites: [
                     {
                         id: guild.roles.everyone.id,
@@ -822,34 +814,24 @@ async function updateVoiceMemberCount(guild) {
                 ]
             });
 
-            console.log(
-                `✅ สร้างห้องสถิติในหมวด ${VOICE_STATS_CATEGORY_ID}: ${statsChannel.name}`
-            );
-
-            return;
+            console.log(`✅ สร้างห้อง: ${statsChannel.name}`);
         }
 
-        // เปลี่ยนเฉพาะตัวเลขด้านท้าย และอัปเดตทุกครั้งที่ตรวจ
-        const newName = statsChannel.name.replace(
-            /\s*\d+\s*$/,
-            ` ${count}`
-        );
+        // เปลี่ยนชื่อทุกครั้งที่ตรวจ เพื่อให้ตัวเลขตรงกับสถานะปัจจุบัน
+        const newName = `${VOICE_STATS_PREFIX} ${count}`;
 
-        await statsChannel.setName(
-            newName,
-            "อัปเดตจำนวนสมาชิกใน Voice/Stage"
-        );
-
-        console.log(
-            `🔊 VOICE COUNT = ${count} | ${newName}`
-        );
+        if (statsChannel.name !== newName) {
+            await statsChannel.setName(
+                newName,
+                "อัปเดตจำนวนสมาชิกใน Voice/Stage"
+            );
+        } else {
+            // ยังคงตรวจและยืนยันค่าทุกครั้ง โดยไม่ทำ API call ซ้ำเมื่อชื่อถูกต้อง
+            console.log(`🔊 VOICE COUNT = ${count}`);
+        }
 
     } catch (error) {
-
-        console.error(
-            "❌ SERVER STATS คนลงห้อง:",
-            error.message
-        );
+        console.error("❌ SERVER STATS คนลงห้อง:", error.message);
     }
 }
 
@@ -3387,6 +3369,11 @@ client.on(
         await updateVoiceMemberCount(
             newState.guild
         );
+
+        // ตรวจซ้ำหลัง Discord อัปเดต VoiceState cache เสร็จ
+        setTimeout(() => {
+            updateVoiceMemberCount(newState.guild).catch(() => {});
+        }, 100);
     }
 );
 
