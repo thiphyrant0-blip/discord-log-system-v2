@@ -774,39 +774,48 @@ const lastVoiceMemberCount = new Map();
 async function updateVoiceMemberCount(guild) {
 
     try {
-        const channel = await guild.channels.fetch(VOICE_COUNT_CHANNEL_ID);
+        // ดึงข้อมูลห้องล่าสุดจาก Discord โดยตรง
+        const channels = await guild.channels.fetch();
+        const targetChannel = channels.get(VOICE_COUNT_CHANNEL_ID);
 
-        if (!channel) {
-            console.error(`❌ ไม่พบห้องคนลงห้อง: ${VOICE_COUNT_CHANNEL_ID}`);
+        if (!targetChannel) {
+            console.error(`❌ ไม่พบห้องคนลงห้อง ID: ${VOICE_COUNT_CHANNEL_ID}`);
             return;
         }
 
-        let count = 0;
+        // นับสมาชิกที่อยู่ใน Voice/Stage ทุกห้องของเซิร์ฟเวอร์
+        // ใช้ข้อมูลสมาชิกจาก Voice State ล่าสุด และไม่นับบอท
+        const memberIds = new Set();
 
-        for (const [, voiceChannel] of guild.channels.cache) {
-            if (!voiceChannel.isVoiceBased()) continue;
+        for (const [, voiceChannel] of channels) {
+            if (!voiceChannel || !voiceChannel.isVoiceBased()) continue;
+
             for (const [, member] of voiceChannel.members) {
-                if (!member.user.bot) count++;
+                if (member && !member.user.bot) {
+                    memberIds.add(member.id);
+                }
             }
         }
 
+        const count = memberIds.size;
         const newName = `👥 คนลงห้อง : ${count}`;
-        const lastCount = lastVoiceMemberCount.get(guild.id);
 
-        // อัปเดตทันทีเมื่อจำนวนเปลี่ยน หรือชื่อห้องไม่ตรงกับจำนวนจริง
-        if (lastCount !== count || channel.name !== newName) {
-            if (channel.name !== newName) {
-                await channel.setName(
-                    newName,
-                    "อัปเดตจำนวนสมาชิกในห้องเสียงแบบเรียลไทม์"
-                );
-            }
+        console.log(`👥 จำนวนคนลงห้องปัจจุบัน: ${count}`);
 
-            lastVoiceMemberCount.set(guild.id, count);
-            console.log(`👥 คนลงห้องจริง: ${count}`);
+        // เปลี่ยนชื่อห้องทุกครั้งที่ชื่อไม่ตรงกับจำนวนจริง
+        if (targetChannel.name !== newName) {
+            await targetChannel.setName(
+                newName,
+                `อัปเดตจำนวนคนลงห้องจริง: ${count} คน`
+            );
+            console.log(`✅ อัปเดตชื่อห้องเป็น: ${newName}`);
         }
+
+        lastVoiceMemberCount.set(guild.id, count);
+
     } catch (error) {
-        console.error("❌ อัปเดตคนลงห้องไม่ได้:", error.message);
+        console.error("❌ อัปเดตจำนวนคนลงห้องไม่ได้:", error.message);
+        console.error("⚠️ ตรวจสอบว่าบอทมีสิทธิ์ Manage Channels ในห้องนี้");
     }
 }
 
@@ -1416,7 +1425,7 @@ client.once(
             } catch (error) {
                 console.error("❌ ตรวจสอบจำนวนคนลงห้องไม่ได้:", error.message);
             }
-        }, 5000);
+        }, 2000);
 
         await sourceGuild.members
             .fetch()
