@@ -748,74 +748,136 @@ function getOnlineCount(
 
 function getVoiceMemberCount(guild) {
 
-    let count = 0;
+    const memberIds = new Set();
 
-    guild.channels.cache.forEach(channel => {
+    // ใช้ VoiceState ของ Discord เป็นหลัก เพราะเป็นข้อมูลของทุกห้องเสียง
+    // ไม่พึ่ง channel.members เพียงอย่างเดียว
+    guild.voiceStates.cache.forEach(voiceState => {
 
-        if (!channel.isVoiceBased()) {
+        if (!voiceState.channelId) {
             return;
         }
 
-        channel.members.forEach(member => {
+        const member = voiceState.member;
 
-            if (!member.user.bot) {
-                count++;
-            }
+        // ไม่นับบอท
+        if (member?.user?.bot) {
+            return;
+        }
 
-        });
-
+        // นับสมาชิกแต่ละคนเพียง 1 ครั้ง
+        memberIds.add(
+            member?.id || voiceState.id
+        );
     });
 
-    return count;
+    return memberIds.size;
 }
 
 const lastVoiceMemberCount = new Map();
 
+let voiceCountUpdating = false;
+
 async function updateVoiceMemberCount(guild) {
 
+    if (!guild || voiceCountUpdating) {
+        return;
+    }
+
+    voiceCountUpdating = true;
+
     try {
-        // ดึงข้อมูลห้องล่าสุดจาก Discord โดยตรง
-        const channels = await guild.channels.fetch();
-        const targetChannel = channels.get(VOICE_COUNT_CHANNEL_ID);
+
+        // ห้องที่ใช้แสดงจำนวนคนลงห้อง
+        const targetChannel =
+            guild.channels.cache.get(
+                VOICE_COUNT_CHANNEL_ID
+            ) ||
+            await guild.channels.fetch(
+                VOICE_COUNT_CHANNEL_ID
+            ).catch(() => null);
 
         if (!targetChannel) {
-            console.error(`❌ ไม่พบห้องคนลงห้อง ID: ${VOICE_COUNT_CHANNEL_ID}`);
+
+            console.error(
+                `❌ ไม่พบห้องคนลงห้อง ID: ${VOICE_COUNT_CHANNEL_ID}`
+            );
+
             return;
         }
 
-        // นับสมาชิกที่อยู่ใน Voice/Stage ทุกห้องของเซิร์ฟเวอร์
-        // ใช้ข้อมูลสมาชิกจาก Voice State ล่าสุด และไม่นับบอท
+        // ====================================================
+        // นับสมาชิกจาก VoiceState ทุกห้องในเซิร์ฟเวอร์
+        // ====================================================
+
+        // refresh voice state cache จาก guild ที่มีอยู่แล้ว
+        // แล้วรวมสมาชิกจากทุก channelId
         const memberIds = new Set();
 
-        for (const [, voiceChannel] of channels) {
-            if (!voiceChannel || !voiceChannel.isVoiceBased()) continue;
+        guild.voiceStates.cache.forEach(
+            voiceState => {
 
-            for (const [, member] of voiceChannel.members) {
-                if (member && !member.user.bot) {
-                    memberIds.add(member.id);
+                if (!voiceState.channelId) {
+                    return;
                 }
+
+                const member =
+                    voiceState.member;
+
+                // ไม่รวมบอท
+                if (
+                    member?.user?.bot
+                ) {
+                    return;
+                }
+
+                memberIds.add(
+                    member?.id || voiceState.id
+                );
             }
-        }
+        );
 
-        const count = memberIds.size;
-        const newName = `👥 คนลงห้อง : ${count}`;
+        const count =
+            memberIds.size;
 
-        console.log(`👥 จำนวนคนลงห้องปัจจุบัน: ${count}`);
+        const newName =
+            `👥 คนลงห้อง : ${count}`;
 
-        // เปลี่ยนชื่อห้องทุกครั้งที่ชื่อไม่ตรงกับจำนวนจริง
-        if (targetChannel.name !== newName) {
+        console.log(
+            `👥 คนลงห้องทุกห้อง: ${count}`
+        );
+
+        // เปลี่ยนชื่อเฉพาะเมื่อจำนวนเปลี่ยน
+        if (
+            targetChannel.name !==
+            newName
+        ) {
+
             await targetChannel.setName(
                 newName,
-                `อัปเดตจำนวนคนลงห้องจริง: ${count} คน`
+                `อัปเดตจำนวนสมาชิกในห้องเสียงทุกห้อง: ${count} คน`
             );
-            console.log(`✅ อัปเดตชื่อห้องเป็น: ${newName}`);
+
+            console.log(
+                `✅ เปลี่ยนชื่อเป็น: ${newName}`
+            );
         }
 
-        lastVoiceMemberCount.set(guild.id, count);
+        lastVoiceMemberCount.set(
+            guild.id,
+            count
+        );
 
     } catch (error) {
-        console.error("❌ อัปเดตจำนวนคนลงห้องไม่ได้:", error.message);
-        console.error("⚠️ ตรวจสอบว่าบอทมีสิทธิ์ Manage Channels ในห้องนี้");
+
+        console.error(
+            "❌ อัปเดตจำนวนคนลงห้องไม่ได้:",
+            error.message
+        );
+
+    } finally {
+
+        voiceCountUpdating = false;
     }
 }
 
